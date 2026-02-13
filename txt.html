@@ -225,5 +225,76 @@
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
+
+
+
+
+
+
+
+
+
+    import React from 'react';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+function WordCloudDisplay({ data }) {
+  if (!data.length) return <p>沒有資料</p>;
+
+  // 簡單字頻計算與字雲呈現
+  const freq = {};
+  data.forEach(text => {
+    if (text) freq[text.trim()] = (freq[text.trim()] || 0) + 1;
+  });
+  const tags = Object.entries(freq).map(([word, count]) => (
+    <span key={word} style={{ fontSize: 12 + count * 5, margin: 4 }}>{word}</span>
+  ));
+
+  return <div>{tags}</div>;
+}
+
+export default function TestApp() {
+  const [responses, setResponses] = React.useState([]);
+  const [input, setInput] = React.useState("");
+
+  React.useEffect(() => {
+    const collRef = collection(db, 'artifacts', 'eco-cloud-app', 'public', 'data', 'responses');
+    const unsubscribe = onSnapshot(collRef, (snapshot) => {
+      setResponses(snapshot.docs.map(doc => doc.data().q1 || ""));
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    const collRef = collection(db, 'artifacts', 'eco-cloud-app', 'public', 'data', 'responses');
+    await addDoc(collRef, { q1: input.trim(), timestamp: new Date() });
+    setInput("");
+  };
+
+  return (
+    <div style={{ padding: 20 }}>
+      <h2>簡易測試：環保杯文字雲</h2>
+      <form onSubmit={handleSubmit} style={{ marginBottom: 20 }}>
+        <input 
+          value={input} 
+          onChange={e => setInput(e.target.value)} 
+          placeholder="輸入飲料種類" 
+          style={{ padding: 8, fontSize: 16, width: 200 }} />
+        <button type="submit" style={{ marginLeft: 10, padding: '8px 16px' }}>送出</button>
+      </form>
+      <WordCloudDisplay data={responses} />
+    </div>
+  );
+}
+
 </body>
 </html>
+
