@@ -598,6 +598,7 @@ const game = {
     state: 'INTRO', timer: 60, score: 0, turtlesSaved: 0,
     entities: { trash: [], jellyfish: [], turtle: null, particles: [], texts: [], bubbles: [], seaweed: [] },
     previousScreen: null,
+    joinedLeaderboard: false,  // 玩家是否已經加入排行榜
 
     init() {
         window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; this.setupSeaweed(); });
@@ -644,8 +645,8 @@ const game = {
         document.getElementById('hud').style.opacity = 1;
         document.getElementById('progress-container').style.opacity = 1;
         this.state = 'PLAYING';
-        // this.score = 0; this.timer = 5; this.turtlesSaved = 0;
-        this.score = 0; this.timer = 60; this.turtlesSaved = 0;
+        this.score = 0; this.timer = 5; this.turtlesSaved = 0;
+        // this.score = 0; this.timer = 60; this.turtlesSaved = 0;
         this.updateHUD();
         if(this.timerInterval) clearInterval(this.timerInterval);
         this.timerInterval = setInterval(() => {
@@ -696,6 +697,15 @@ const game = {
         document.getElementById('rank-action').innerText = actionText;
         document.getElementById('turtle-count').innerText = this.turtlesSaved;
         document.getElementById('score-total').innerText = this.score;
+
+        const joinBtn = document.getElementById("btn-join-leaderboard");
+        if (this.joinedLeaderboard) {
+            joinBtn.innerText = "查看排行榜";
+            joinBtn.onclick = () => this.showLeaderboardFromEnding();
+        } else {
+            joinBtn.innerText = "加入排行榜";
+            joinBtn.onclick = () => this.openJoinModal();
+        }
         
         document.getElementById('hud').style.opacity = 0;
         document.getElementById('progress-container').style.opacity = 0;
@@ -788,35 +798,15 @@ const game = {
         requestAnimationFrame(() => this.loop());
     },
 
-    async showLeaderboard(extraPlayer = null) {
+    generateLeaderboardHTML(players, extraPlayer = null) {
+        // 先排序：海龜數降序 -> 分數降序
+        players.sort((a, b) => {
+            if (b.turtles !== a.turtles) return b.turtles - a.turtles;
+            return b.score - a.score;
+        });
 
-        // 記錄目前 active 的畫面
-        const activeScreen = document.querySelector('.screen.active');
-        if(activeScreen && activeScreen.id !== 'leaderboard-screen') {
-            this.previousScreen = activeScreen.id;
-        }
-
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('leaderboard-screen').classList.add('active');
-
-        const wrapper = document.querySelector('.leaderboard-wrapper');
-        wrapper.classList.remove('fade-in-up');
-        void wrapper.offsetWidth; // 重新觸發
-        wrapper.classList.add('fade-in-up');
-
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('leaderboard-screen').classList.add('active');
-
-        const listEl = document.getElementById('leaderboard-list');
-        listEl.innerHTML = "載入中...";
-
-        const q = fb.query(
-            fb.collection(db, "saving-sea-turtles"),
-            fb.orderBy("score", "desc"),
-            fb.limit(10)
-        );
-
-        const snapshot = await fb.getDocs(q);
+        // 只取前 10 名
+        const topPlayers = players.slice(0, 10);
 
         let html = `
             <table class="leaderboard-table">
@@ -832,41 +822,28 @@ const game = {
                 <tbody>
         `;
 
-        let rank = 1;
-
-        snapshot.forEach(doc => {
-            const data = doc.data();
-
-            let rankDisplay = rank;
+        topPlayers.forEach((player, index) => {
+            let rankDisplay = index + 1;
             let rankClass = "";
 
-            if (rank === 1) {
-                rankDisplay = "🥇";
-                rankClass = "rank-gold";
-            } else if (rank === 2) {
-                rankDisplay = "🥈";
-                rankClass = "rank-silver";
-            } else if (rank === 3) {
-                rankDisplay = "🥉";
-                rankClass = "rank-bronze";
-            }
+            if (index === 0) rankDisplay = "🥇", rankClass="rank-gold";
+            else if (index === 1) rankDisplay = "🥈", rankClass="rank-silver";
+            else if (index === 2) rankDisplay = "🥉", rankClass="rank-bronze";
 
             html += `
                 <tr>
                     <td class="${rankClass}">${rankDisplay}</td>
-                    <td>${data.name}</td>
-                    <td>${data.rank}</td>
-                    <td>${data.turtles || 0}</td>
-                    <td>${data.score}</td>
+                    <td>${player.name}</td>
+                    <td>${player.rank}</td>
+                    <td>${player.turtles || 0}</td>
+                    <td>${player.score}</td>
                 </tr>
             `;
-
-            rank++;
         });
 
         html += `</tbody></table>`;
 
-        // 如果玩家不在前10
+        // 顯示玩家自己如果不在前 10
         if (extraPlayer && extraPlayer.rank > 10) {
             html += `
                 <div style="margin-top:15px;color:#ffd166;font-size:0.9rem;">
@@ -875,7 +852,28 @@ const game = {
             `;
         }
 
-        listEl.innerHTML = html;
+        return html;
+    },
+
+    async showLeaderboard(extraPlayer = null) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('leaderboard-screen').classList.add('active');
+
+        const wrapper = document.querySelector('.leaderboard-wrapper');
+        wrapper.classList.remove('fade-in-up');
+        void wrapper.offsetWidth; 
+        wrapper.classList.add('fade-in-up');
+
+        const listEl = document.getElementById('leaderboard-list');
+        listEl.innerHTML = "載入中...";
+
+        const snapshot = await fb.getDocs(
+            fb.query(fb.collection(db, "saving-sea-turtles"), fb.limit(50))
+        );
+
+        let players = snapshot.docs.map(doc => doc.data());
+
+        listEl.innerHTML = this.generateLeaderboardHTML(players, extraPlayer);
     },
 
     backToPreviousScreen() {
@@ -978,66 +976,44 @@ const game = {
             }
         );
 
-        this.closeJoinModal();  // 送出後關閉 modal
-        this.showLeaderboardFromEnding(); // 顯示排行榜
+        this.joinedLeaderboard = true; // 標記玩家已加入
+        this.closeJoinModal();
+        this.showLeaderboardFromEnding();
     },
 
     async showLeaderboardFromEnding() {
-        // 記錄回來要回到的畫面為 ending
         this.previousScreen = 'ending-screen';
+
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById('leaderboard-screen').classList.add('active');
 
         const wrapper = document.querySelector('.leaderboard-wrapper');
         wrapper.classList.remove('fade-in-up');
         void wrapper.offsetWidth;
         wrapper.classList.add('fade-in-up');
 
-        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-        document.getElementById('leaderboard-screen').classList.add('active');
-
-        // 載入排行榜資料
         const listEl = document.getElementById('leaderboard-list');
         listEl.innerHTML = "載入中...";
 
-        const q = fb.query(
-            fb.collection(db, "saving-sea-turtles"),
-            fb.orderBy("score","desc"),
-            fb.limit(10)
+        const snapshot = await fb.getDocs(
+            fb.query(fb.collection(db, "saving-sea-turtles"), fb.limit(50))
         );
-        const snapshot = await fb.getDocs(q);
+        let players = snapshot.docs.map(doc => doc.data());
+        listEl.innerHTML = this.generateLeaderboardHTML(players);
 
-        let html = `<table class="leaderboard-table">
-            <thead>
-                <tr>
-                    <th>名次</th><th>勇者名字</th><th>等級</th><th>拯救海龜</th><th>分數</th>
-                </tr>
-            </thead><tbody>`;
-
-        let rank=1;
-        snapshot.forEach(doc=>{
-            const data = doc.data();
-            let rankDisplay = rank;
-            let rankClass = "";
-            if(rank===1){ rankDisplay="👑"; rankClass="rank-gold"; }
-            else if(rank===2){ rankDisplay="👑"; rankClass="rank-silver"; }
-            else if(rank===3){ rankDisplay="👑"; rankClass="rank-bronze"; }
-
-            html += `<tr>
-                <td class="${rankClass}">${rankDisplay}</td>
-                <td>${data.name}</td>
-                <td>${data.rank}</td>
-                <td>${data.turtles || 0}</td>
-                <td>${data.score}</td>
-            </tr>`;
-            rank++;
-        });
-        html += `</tbody></table>`;
-        listEl.innerHTML = html;
-
-        // 將「再次行動」旁按鈕文字改成「查看排行榜」
+        // 更新按鈕文字和事件
         const joinBtn = document.getElementById("btn-join-leaderboard");
-        joinBtn.innerText = "查看排行榜";
-        joinBtn.onclick = ()=> this.showLeaderboardFromEnding();
-    }
+        if (this.joinedLeaderboard) {
+            joinBtn.innerText = "查看排行榜";
+            joinBtn.onclick = () => this.showLeaderboardFromEnding();
+        } else {
+            joinBtn.innerText = "加入排行榜";
+            joinBtn.onclick = async () => {
+                await this.submitLeaderboard();
+                this.showLeaderboardFromEnding();
+            };
+        }
+    },
 };
 
 window.onload = () => game.init();
