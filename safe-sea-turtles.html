@@ -645,8 +645,8 @@ const game = {
         document.getElementById('hud').style.opacity = 1;
         document.getElementById('progress-container').style.opacity = 1;
         this.state = 'PLAYING';
-        this.score = 0; this.timer = 5; this.turtlesSaved = 0;
-        // this.score = 0; this.timer = 60; this.turtlesSaved = 0;
+        // this.score = 0; this.timer = 5; this.turtlesSaved = 0;
+        this.score = 0; this.timer = 60; this.turtlesSaved = 0;
         this.updateHUD();
         if(this.timerInterval) clearInterval(this.timerInterval);
         this.timerInterval = setInterval(() => {
