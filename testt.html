@@ -434,12 +434,12 @@
 
             data.forEach((item, index) => {
                 const details = item["活動細節"] || {};
-                const reportDate = details["活動日期"] || "2026/04/19";
+                const reportDate = details["活動日期"] || "";
                 const challengeContent = details["接帖內容"] || "自訂任務";
                 const feedback = details["挑戰心得 (至少50字)"] || "成功守護環境！";
                 const people = getSafeNum(details["參與挑戰人數"]);
                 const trash = getSafeNum(details["撿起的「垃圾量」 (大約包數)"]) + getSafeNum(details["撿起的「垃圾量」 (總重量)"]) + getSafeNum(details["估計減少的一次性塑膠量"]) + getSafeNum(details["估計減少的一次性塑膠量 (填寫總數量)"]);
-                const challengeClass = item["接帖班級"] || "勇士";
+                const challengeClass = details["接帖班級"] || "勇士";
                 const hardLevel = details["(非必填) 本次行動 有遇到什麼困難嗎？"];
                 const location = details["活動地點"];
                 const top1 = details["撿起垃圾排行榜 Top1"];
@@ -466,7 +466,7 @@
                 const cardHTML = `
                     <div class="glass-card rounded-[1.5rem] md:rounded-[2rem] overflow-hidden hover:shadow-2xl transition-all duration-500 block md:flex flex-col animate-fade-in">
                         <!-- 上方媒體區塊 -->
-                        <div class="card-media-container bg-slate-200">
+                        <div class="card-media-container bg-slate-200 aspect-[1200/675]">
                             <div class="tags-overlay">
                                 <div class="item-tag">${challengeContent}</div>
                                 <div class="date-text ml-auto">${reportDate}</div>
@@ -497,6 +497,16 @@
                             </div>
 
                             <div class="bg-white/40 p-4 rounded-2xl border border-white/60 shadow-sm flex-grow">
+                                <!-- 活動地點 -->
+                                ${location ? `
+                                    <div class="mt-2 mb-1">
+                                        <div class="flex items-center mb-3 text-sm md:text-md">
+                                            <h3 class="text-sm md:text-base font-black text-blue-700 tracking-wider uppercase"><span class="mr-1"><i class="fas fa-map-marker-alt"></i></span></h3>
+                                            <p class="text-blue-700 font-bold leading-relaxed justify-text opacity-90 line-clamp-2">${location}</p>
+                                        </div>
+
+                                    </div>
+                                ` : ''}
                                 <!-- 心得 -->
                                 <div class="mb-4">
                                     <div class="flex items-center mb-1.5">
@@ -504,17 +514,7 @@
                                         <h3 class="text-[10px] font-black text-blue-900 tracking-wider uppercase">挑戰心得</h3>
                                         <div class="title-line-blue"></div>
                                     </div>
-                                    <!-- 活動地點 -->
-                                ${location ? `
-                                    <div class="mt-2 mb-1">
-                                        <div class="flex items-center">
-                                            <h3 class="text-sm md:text-base font-black text-blue-800 tracking-wider uppercase">活動地點：</h3>
-                                            <p class="text-blue-800 text-sm md:text-base font-bold leading-relaxed justify-text opacity-90 line-clamp-2">${location}</p>
-                                        </div>
-
-                                    </div>
-                                ` : ''}
-                                    <p class="text-blue-800 text-sm md:text-base font-bold leading-relaxed justify-text line-clamp-4">${feedback}</p>
+                                    <p class="text-blue-800 text-sm md:text-base font-bold leading-relaxed justify-text">${feedback}</p>
                                 </div>
 
                                 <!-- 垃圾排行榜：現在呈現三個品項 -->
@@ -541,17 +541,6 @@
                                                 </div>
                                             ` : ''}
                                         </div>
-                                    </div>
-                                ` : ''}
-                                <!-- 活動地點 -->
-                                ${location ? `
-                                    <div class="mt-2 mb-2.5">
-                                        <div class="flex items-center mb-1.5">
-                                            <span class="text-slate-500 text-[10px] mr-2"><i class="fas fa-map-marker-alt"></i></span>
-                                            <h3 class="text-[10px] font-black text-slate-500 tracking-wider uppercase">活動地點</h3>
-                                            <div class="title-line-slate"></div>
-                                        </div>
-                                        <p class="text-slate-500 text-xs md:text-sm font-bold leading-relaxed justify-text opacity-90 line-clamp-2">${location}</p>
                                     </div>
                                 ` : ''}
                                 <!-- 困難點 -->
