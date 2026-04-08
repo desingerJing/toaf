@@ -446,22 +446,66 @@
                 const top2 = details["撿起垃圾排行榜 Top2"];
                 const top3 = details["撿起垃圾排行榜 Top3"];
 
+                // --- 1. 強化媒體清單處理 (保持網址特徵判斷) ---
                 let mediaItems = [];
-                if (details["影片"]) mediaItems.push({ type: 'video', id: getFileId(details["影片"]), url: getDrivePreview(details["影片"]) });
-                let imgs = Array.isArray(details["圖片"]) ? details["圖片"] : (details["圖片"] ? [details["圖片"]] : []);
-                imgs.forEach(u => mediaItems.push({ type: 'image', url: getDrivePreview(u) }));
-                if (mediaItems.length === 0) mediaItems.push({ type: 'image', url: 'https://via.placeholder.com/800x600?text=Keep+Plastic+Free' });
 
-                const mediaHTML = mediaItems.map((m, i) => `
-                    <div class="carousel-item-${index}  inset-0 md:w-full md:h-full transition-all duration-700 ${i === 0 ? 'opacity-100 z-10' : 'opacity-0 z-0 absolute'}">
-                        ${m.type === 'video' ? `
-                            <div class="relative h-full w-full cursor-pointer group/vid" onclick="openLightbox('${m.id}')">
-                                <img src="${m.url}" class="w-full h-full object-cover aspect-[16/10]">
-                                <div class="video-play-btn"><i class="fas fa-play ml-1"></i></div>
-                            </div>
-                        ` : `<img src="${m.url}" class="w-full h-full object-cover">`}
-                    </div>
-                `).join('');
+                // 判斷網址是否為影片的輔助函式
+                const isVideoLink = (url) => {
+                    if (!url) return false;
+                    const sUrl = url.toLowerCase();
+                    return sUrl.includes('video') || sUrl.includes('mp4') || sUrl.includes('mov');
+                };
+
+                // 處理影片欄位
+                if (details["影片"]) {
+                    let vids = Array.isArray(details["影片"]) ? details["影片"] : details["影片"].toString().split(',');
+                    vids.forEach(v => {
+                        const url = v.trim();
+                        const id = getFileId(url);
+                        if (id) mediaItems.push({ type: 'video', id: id, url: getDrivePreview(url) });
+                    });
+                }
+
+                // 處理圖片欄位 (包含判斷裡面是否有影片連結)
+                if (details["圖片"]) {
+                    let imgs = Array.isArray(details["圖片"]) ? details["圖片"] : (details["圖片"] ? [details["圖片"]] : []);
+                    imgs.forEach(u => {
+                        if (!u) return;
+                        const url = u.trim();
+                        const id = getFileId(url);
+                        if (isVideoLink(url)) {
+                            mediaItems.push({ type: 'video', id: id, url: getDrivePreview(url) });
+                        } else {
+                            mediaItems.push({ type: 'image', url: getDrivePreview(url) });
+                        }
+                    });
+                }
+
+                if (mediaItems.length === 0) {
+                    mediaItems.push({ type: 'image', url: 'https://via.placeholder.com/800x600?text=Keep+Plastic+Free' });
+                }
+
+                // --- 2. 核心合併：加入影響手機播放的關鍵 class (inset-0 與 aspect-[16/10]) ---
+                const mediaHTML = mediaItems.map((m, i) => {
+                    const isFirst = i === 0;
+                    // 合併關鍵 1：保留 inset-0 確保撐滿容器
+                    const itemClass = `carousel-item-${index} inset-0 md:w-full md:h-full transition-all duration-700 ${isFirst ? 'opacity-100 z-10' : 'opacity-0 z-0 absolute'}`;
+
+                    if (m.type === 'video') {
+                        return `
+                            <div class="${itemClass}">
+                                <div class="relative h-full w-full cursor-pointer group/vid" onclick="openLightbox('${m.id}')">
+                                    <img src="${m.url}" class="w-full h-full object-cover aspect-[16/10]">
+                                    <div class="video-play-btn"><i class="fas fa-play ml-1"></i></div>
+                                </div>
+                            </div>`;
+                    } else {
+                        return `
+                            <div class="${itemClass}">
+                                <img src="${m.url}" class="w-full h-full object-cover">
+                            </div>`;
+                    }
+                }).join('');
 
                 const cardHTML = `
                     <div class="glass-card rounded-[1.5rem] md:rounded-[2rem] overflow-hidden hover:shadow-2xl transition-all duration-500 block md:flex flex-col animate-fade-in">
