@@ -84,6 +84,32 @@
             }
         }
 
+        .animate-scale-in {
+            animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes shine {
+            0% {
+                left: -100%;
+            }
+
+            100% {
+                left: 100%;
+            }
+        }
+
+        .shine-effect::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: skewX(-25deg);
+            animation: shine 2s infinite;
+        }
+
         .animate-fade-in {
             animation: fadeIn 0.3s ease-out forwards;
         }
@@ -444,42 +470,42 @@
         let myGivenLikes = [];
 
         // ==========================================
-            // 優化：跨網頁自動認人連動機制 (直接繼承個人挑戰頁的登入快取)
-            // ==========================================
-            function autoLoginByFingerprint() {
-                // 🎯 智慧對接：直接讀取個人挑戰頁設定的 localStorage 標準凭证與 UID
-                const savedLoginStatus = localStorage.getItem('no_plastic_logged_in');
-                const savedUid = localStorage.getItem('no_plastic_user_id');
+        // 優化：跨網頁自動認人連動機制 (直接繼承個人挑戰頁的登入快取)
+        // ==========================================
+        function autoLoginByFingerprint() {
+            // 🎯 智慧對接：直接讀取個人挑戰頁設定的 localStorage 標準凭证與 UID
+            const savedLoginStatus = localStorage.getItem('no_plastic_logged_in');
+            const savedUid = localStorage.getItem('no_plastic_user_id');
 
-                if (savedLoginStatus === 'true' && savedUid) {
-                    // 從該 UID 的專屬快取資料夾中，挖出最新的一日狀態快取
-                    const localDataStr = localStorage.getItem(`data_${savedUid}`);
+            if (savedLoginStatus === 'true' && savedUid) {
+                // 從該 UID 的專屬快取資料夾中，挖出最新的一日狀態快取
+                const localDataStr = localStorage.getItem(`data_${savedUid}`);
 
-                    isLoggedIn = true;
-                    userId = savedUid;
+                isLoggedIn = true;
+                userId = savedUid;
 
-                    if (localDataStr) {
-                        try {
-                            const d = JSON.parse(localDataStr);
-                            // 🎯 核心同步：即時還原該學員在個人頁已經點過的所有按讚(愛心)歷史紀錄！
-                            myGivenLikes = d.myGivenLikes || [];
-                        } catch (e) {
-                            myGivenLikes = [];
-                        }
+                if (localDataStr) {
+                    try {
+                        const d = JSON.parse(localDataStr);
+                        // 🎯 核心同步：即時還原該學員在個人頁已經點過的所有按讚(愛心)歷史紀錄！
+                        myGivenLikes = d.myGivenLikes || [];
+                    } catch (e) {
+                        myGivenLikes = [];
                     }
-
-                    console.log("🏆 成果頁已成功連動個人挑戰頁身分，UID:", userId);
-                    // 如果目前畫面上剛好有展開某位挑戰者，立刻重新刷新他的細部按讚按鈕狀態
-                    if (selectedChallengerId) {
-                        selectChallenger(selectedChallengerId);
-                    }
-                } else {
-                    // 若個人挑戰頁目前是登出狀態，成果頁也利落地回歸訪客模式
-                    isLoggedIn = false;
-                    userId = "";
-                    myGivenLikes = [];
                 }
+
+                console.log("🏆 成果頁已成功連動個人挑戰頁身分，UID:", userId);
+                // 如果目前畫面上剛好有展開某位挑戰者，立刻重新刷新他的細部按讚按鈕狀態
+                if (selectedChallengerId) {
+                    selectChallenger(selectedChallengerId);
+                }
+            } else {
+                // 若個人挑戰頁目前是登出狀態，成果頁也利落地回歸訪客模式
+                isLoggedIn = false;
+                userId = "";
+                myGivenLikes = [];
             }
+        }
 
         const SPREADSHEET_ID = "1BaxkH6TiYec6WmivQJOoFMfrn4MZnhryldKE0j5p7AI";
         const CHALLENGE_GID = 1532083422;
@@ -937,14 +963,18 @@
             updateHeroStats();
 
             // -------------------------------------------------------------
-            // 🎯 終極安全版：個人紅框戰況智慧計算（移除半路點選，徹底破解卡死圈圈）
+            // 🎯 終極優化版：個人紅框戰況智慧計算（支援未登入時顯示精緻登入引導按鈕）
             // -------------------------------------------------------------
-            if (isLoggedIn && userId) {
-                const myRowData = challengersData.find(c => String(c.uid) === String(userId));
-                const pMobile = document.getElementById('my-profile-panel-mobile');
-                const pDesktop = document.getElementById('my-profile-panel-desktop');
+            const pMobile = document.getElementById('my-profile-panel-mobile');
+            const pDesktop = document.getElementById('my-profile-panel-desktop');
 
-                if (myRowData && (pMobile || pDesktop)) {
+            let finalCardContent = "";
+
+            if (isLoggedIn && userId) {
+                // 🟢 【已登入狀態】：100% 依新圖打造左右分流與置中橘色排名膠囊
+                const myRowData = challengersData.find(c => String(c.uid) === String(userId));
+
+                if (myRowData) {
                     const myScore = myRowData.totalScore || 0;
                     const myRank = myRowData.rank || "-";
                     let myName = myRowData.name || "挑戰者";
@@ -952,15 +982,6 @@
                     // 濾掉姓名開頭編排的班級代碼
                     if (myRowData.className && myName.indexOf(myRowData.className) === 0) {
                         myName = myName.substring(myRowData.className.length).trim();
-                    }
-
-                    // 智慧打卡累計
-                    let totalActionsCount = 0;
-                    if (myRowData.dailyPractices) {
-                        Object.values(myRowData.dailyPractices).forEach(day => {
-                            if (day.core) totalActionsCount += day.core.length;
-                            if (day.general) totalActionsCount += day.general.length;
-                        });
                     }
 
                     // 智慧按讚數加總
@@ -971,14 +992,16 @@
                         });
                     }
 
+                    // 智慧法語成就加總
                     const dharmaCount = myRowData.dharmaCount || 0;
 
-                    // 🏆 100% 依新圖打造橫向極簡排版 (精簡、左右分流、黃金流光排名)
-                    const finalCardContent = `
-                        <div onclick="selectChallenger('${myRowData.id}')" class="w-full flex flex-col items-center justify-center cursor-pointer select-none transition-transform active:scale-[0.99]" title="點擊快速展開我的三十天成果時間軸">
+                    finalCardContent = `
+                        <div onclick="selectChallenger('${myRowData.id}'); document.getElementById('filter-section').scrollIntoView({ behavior: 'smooth', block: 'start' });" class="w-full flex flex-col items-center justify-center cursor-pointer select-none transition-transform active:scale-[0.99]" title="點擊快速展開我的三十天成果時間軸">
+                            <!-- 上半部：左右分流布局 -->
                             <div class="w-full flex items-center justify-between pb-3 px-1 sm:px-2">
+                                <!-- 左上：名字與雙數據微底色方塊 -->
                                 <div class="text-left flex flex-col justify-center min-w-0">
-                                    <h4 class="text-sm xl:text-base text-teal-800 font-bold opacity-90">
+                                    <h4 class="text-sm xl:text-base text-teal-800 font-bold opacity-90 truncate max-w-[150px] sm:max-w-[200px]">
                                         ${myRowData.className ? `${myRowData.className} ` : ""}${myName}
                                     </h4>
                                     <div class="flex items-center gap-1.5 mt-1">
@@ -990,13 +1013,15 @@
                                         </div>
                                     </div>
                                 </div>
+                                <!-- 右上：巨大積分展現 -->
                                 <div class="text-right flex gap-0.5 items-baseline text-teal-900 select-none pl-2 flex-shrink-0">
                                     <span class="hero-total-score text-4xl xl:text-5xl font-black italic">${myScore}</span>
                                     <span class="text-xs xl:text-sm font-bold opacity-80"> PT</span>
                                 </div>
                             </div>
+                            <!-- 下半部：置中流光膠囊排名條 -->
                             <div class="w-full mt-1">
-                                <div class="w-full py-1.5 sm:py-2 bg-gradient-to-r from-[#3b5bdb] to-[#1e1b4b]  rounded-xl text-center shadow-md shadow-orange-500/10 relative overflow-hidden group">
+                                <div class="w-full bg-gradient-to-r from-blue-500 to-blue-700 text-white py-2.5 rounded-full font-black text-sm shadow-lg shadow-blue-500/30 active:scale-95 transition-all relative overflow-hidden group">
                                     <div class="absolute inset-0 bg-white/10 skew-x-[45deg] -translate-x-full group-hover:animate-[shine_2.5s_infinite]"></div>
                                     <span class="relative z-10 text-white font-black text-[11px] sm:text-sm tracking-widest flex items-center justify-center gap-1.5 drop-shadow-sm">
                                         🏆 目前排名 : 第 ${myRank} 名
@@ -1006,19 +1031,32 @@
                         </div>
                     `;
 
-                    // 注入 HTML
-                    if (pMobile) {
-                        pMobile.innerHTML = finalCardContent;
-                        pMobile.classList.remove('hidden');
-                    }
-                    if (pDesktop) {
-                        pDesktop.innerHTML = finalCardContent;
-                        pDesktop.classList.remove('hidden');
-                    }
-
-                    // 🎯 智慧修正：這裡「只紀錄身分」，絕對不提前呼叫點選！
                     selectedChallengerId = myRowData.id;
                 }
+            } else {
+                // ⚪ 【未登入狀態】：渲染清新一致的引進登入按鈕面板，取代原本的空白隱藏
+                finalCardContent = `
+                    <div class="w-full flex flex-col items-center justify-between gap-1 text-center sm:text-left py-1 px-1">
+                        <p class="text-xs sm:text-sm font-black text-slate-700 tracking-wide">您目前尚未登入實踐</p>
+                        <p class="text-[10px] sm:text-xs font-bold text-slate-400 mt-0.5">登入後可在此秒速快顯您三十天的專屬排名與行持 PT 喔！</p>
+                        <button onclick="window.location.href='https://sites.google.com/view/toafnoplastic/yujingTest01?redirect=' + encodeURIComponent(window.location.href)" class="w-full mt-2 bg-gradient-to-r from-blue-500 to-blue-700 text-white py-3 rounded-xl font-black text-sm shadow-lg shadow-blue-500/30 active:scale-95 transition-all relative overflow-hidden group gap-4">
+                             <div class="absolute inset-0 bg-white/20 skew-x-[45deg] -translate-x-full group-hover:animate-[shine_1.5s_infinite]"></div>
+                             <span class="relative z-10 tracking-widest">登入系統</span>
+                        </button>
+                    </div>
+                `;
+
+                selectedChallengerId = null;
+            }
+
+            // 🎯 全方位解除 hidden 鎖定，讓不論是否登入，兩個平台空位都能正常秀出面板
+            if (pMobile) {
+                pMobile.innerHTML = finalCardContent;
+                pMobile.classList.remove('hidden');
+            }
+            if (pDesktop) {
+                pDesktop.innerHTML = finalCardContent;
+                pDesktop.classList.remove('hidden');
             }
 
             filterChallengers();
@@ -1663,8 +1701,8 @@
                 // 延遲 1.2 秒給予挑戰者肉眼閱讀時間，隨即將父視窗(或當前分頁)直接導流至個人頁
                 setTimeout(() => {
                     // GOOGLE_SITES_URL 是個人挑戰頁的位置
-                    window.location.href = "https://sites.google.com/view/testtoaf/single0530";
-                }, 1200);
+                    window.location.href = "https://sites.google.com/view/toafnoplastic/yujingTest01?redirect=" + encodeURIComponent(window.location.href);
+                }, 0);
                 return;
             }
 
