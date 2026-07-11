@@ -171,6 +171,11 @@
                         </div>
                     </div>
                 </div>
+                <div class="flex items-center justify-center gap-5 mt-2 w-full max-w-md mx-auto">
+                    <div id="my-profile-panel-mobile" class="w-full bg-white/50 backdrop-blur-md border border-white/80 rounded-2xl p-4 shadow-[0_4px_15px_rgba(0,0,0,0.03)] text-slate-800">
+                        <!-- 由 JavaScript 動態注入個人成績 -->
+                    </div>
+                </div>
                 <button
                     onclick="document.getElementById('filter-section').scrollIntoView({ behavior: 'smooth', block: 'start' })"
                     class="mt-6 sm:mt-8 text-teal-800/60 hover:text-teal-900 transition-colors animate-bounce focus:outline-none cursor-pointer z-20 relative">
@@ -231,6 +236,11 @@
                                 <span class="hero-total-score text-4xl xl:text-5xl font-black italic">0</span>
                                 <span class="text-xs xl:text-sm font-bold opacity-80">PT</span>
                             </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-center gap-5 mt-2 w-full max-w-md mx-auto">
+                        <div id="my-profile-panel-desktop" class="w-full bg-white/50 backdrop-blur-md border border-white/80 rounded-2xl p-4 sm:p-5 shadow-[0_4px_15px_rgba(0,0,0,0.03)] text-slate-800 hidden animate-fade-in">
+                            <!-- 核心戰況資料將由下方 JavaScript 智慧注入 -->
                         </div>
                     </div>
                 </div>
@@ -433,19 +443,43 @@
         let userId = "";
         let myGivenLikes = [];
 
-        function autoLoginByFingerprint() {
-            const fingerprint = navigator.userAgent;
-            callJsonpApi('login', { isAutoCheck: "true", userAgent: fingerprint }, function (data) {
-                if (data && data.result === "success") {
+        // ==========================================
+            // 優化：跨網頁自動認人連動機制 (直接繼承個人挑戰頁的登入快取)
+            // ==========================================
+            function autoLoginByFingerprint() {
+                // 🎯 智慧對接：直接讀取個人挑戰頁設定的 localStorage 標準凭证與 UID
+                const savedLoginStatus = localStorage.getItem('no_plastic_logged_in');
+                const savedUid = localStorage.getItem('no_plastic_user_id');
+
+                if (savedLoginStatus === 'true' && savedUid) {
+                    // 從該 UID 的專屬快取資料夾中，挖出最新的一日狀態快取
+                    const localDataStr = localStorage.getItem(`data_${savedUid}`);
+
                     isLoggedIn = true;
-                    userId = data.uid || "";
-                    myGivenLikes = data.myGivenLikes ? String(data.myGivenLikes).split(',').filter(Boolean) : [];
+                    userId = savedUid;
+
+                    if (localDataStr) {
+                        try {
+                            const d = JSON.parse(localDataStr);
+                            // 🎯 核心同步：即時還原該學員在個人頁已經點過的所有按讚(愛心)歷史紀錄！
+                            myGivenLikes = d.myGivenLikes || [];
+                        } catch (e) {
+                            myGivenLikes = [];
+                        }
+                    }
+
+                    console.log("🏆 成果頁已成功連動個人挑戰頁身分，UID:", userId);
+                    // 如果目前畫面上剛好有展開某位挑戰者，立刻重新刷新他的細部按讚按鈕狀態
                     if (selectedChallengerId) {
                         selectChallenger(selectedChallengerId);
                     }
+                } else {
+                    // 若個人挑戰頁目前是登出狀態，成果頁也利落地回歸訪客模式
+                    isLoggedIn = false;
+                    userId = "";
+                    myGivenLikes = [];
                 }
-            });
-        }
+            }
 
         const SPREADSHEET_ID = "1BaxkH6TiYec6WmivQJOoFMfrn4MZnhryldKE0j5p7AI";
         const CHALLENGE_GID = 1532083422;
@@ -901,6 +935,92 @@
             });
 
             updateHeroStats();
+
+            // -------------------------------------------------------------
+            // 🎯 終極安全版：個人紅框戰況智慧計算（移除半路點選，徹底破解卡死圈圈）
+            // -------------------------------------------------------------
+            if (isLoggedIn && userId) {
+                const myRowData = challengersData.find(c => String(c.uid) === String(userId));
+                const pMobile = document.getElementById('my-profile-panel-mobile');
+                const pDesktop = document.getElementById('my-profile-panel-desktop');
+
+                if (myRowData && (pMobile || pDesktop)) {
+                    const myScore = myRowData.totalScore || 0;
+                    const myRank = myRowData.rank || "-";
+                    let myName = myRowData.name || "挑戰者";
+
+                    // 濾掉姓名開頭編排的班級代碼
+                    if (myRowData.className && myName.indexOf(myRowData.className) === 0) {
+                        myName = myName.substring(myRowData.className.length).trim();
+                    }
+
+                    // 智慧打卡累計
+                    let totalActionsCount = 0;
+                    if (myRowData.dailyPractices) {
+                        Object.values(myRowData.dailyPractices).forEach(day => {
+                            if (day.core) totalActionsCount += day.core.length;
+                            if (day.general) totalActionsCount += day.general.length;
+                        });
+                    }
+
+                    // 智慧按讚數加總
+                    let totalReceivedLikes = 0;
+                    if (myRowData.reports) {
+                        Object.values(myRowData.reports).forEach(r => {
+                            totalReceivedLikes += (r.likes || 0);
+                        });
+                    }
+
+                    const dharmaCount = myRowData.dharmaCount || 0;
+
+                    // 🏆 100% 依新圖打造橫向極簡排版 (精簡、左右分流、黃金流光排名)
+                    const finalCardContent = `
+                        <div onclick="selectChallenger('${myRowData.id}')" class="w-full flex flex-col items-center justify-center cursor-pointer select-none transition-transform active:scale-[0.99]" title="點擊快速展開我的三十天成果時間軸">
+                            <div class="w-full flex items-center justify-between pb-3 px-1 sm:px-2">
+                                <div class="text-left flex flex-col justify-center min-w-0">
+                                    <h4 class="text-sm xl:text-base text-teal-800 font-bold opacity-90">
+                                        ${myRowData.className ? `${myRowData.className} ` : ""}${myName}
+                                    </h4>
+                                    <div class="flex items-center gap-1.5 mt-1">
+                                        <div class="inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] sm:text-xs font-bold text-slate-500">
+                                            <span>❤️</span> <span>${totalReceivedLikes}</span>
+                                        </div>
+                                        <div class="inline-flex items-center gap-0.5 px-1 py-0.5 text-[10px] sm:text-xs font-bold text-slate-500">
+                                            <span>✨</span> <span>${dharmaCount}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right flex gap-0.5 items-baseline text-teal-900 select-none pl-2 flex-shrink-0">
+                                    <span class="hero-total-score text-4xl xl:text-5xl font-black italic">${myScore}</span>
+                                    <span class="text-xs xl:text-sm font-bold opacity-80"> PT</span>
+                                </div>
+                            </div>
+                            <div class="w-full mt-1">
+                                <div class="w-full py-1.5 sm:py-2 bg-gradient-to-r from-[#3b5bdb] to-[#1e1b4b]  rounded-xl text-center shadow-md shadow-orange-500/10 relative overflow-hidden group">
+                                    <div class="absolute inset-0 bg-white/10 skew-x-[45deg] -translate-x-full group-hover:animate-[shine_2.5s_infinite]"></div>
+                                    <span class="relative z-10 text-white font-black text-[11px] sm:text-sm tracking-widest flex items-center justify-center gap-1.5 drop-shadow-sm">
+                                        🏆 目前排名 : 第 ${myRank} 名
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+
+                    // 注入 HTML
+                    if (pMobile) {
+                        pMobile.innerHTML = finalCardContent;
+                        pMobile.classList.remove('hidden');
+                    }
+                    if (pDesktop) {
+                        pDesktop.innerHTML = finalCardContent;
+                        pDesktop.classList.remove('hidden');
+                    }
+
+                    // 🎯 智慧修正：這裡「只紀錄身分」，絕對不提前呼叫點選！
+                    selectedChallengerId = myRowData.id;
+                }
+            }
+
             filterChallengers();
         }
 
@@ -1530,12 +1650,43 @@
             }
         }
 
+        // ==========================================
+        // 優化：成果頁智慧點讚與全域個人頁聯動系統
+        // ==========================================
         window.handle成果PageLike = function (targetUid, weekId, currentLikes) {
-            if (!isLoggedIn || !userId) return;
             const likeKey = `${targetUid}_${weekId}`;
-            if (myGivenLikes.includes(likeKey)) return;
 
+            // 🎯 核心優化 1：如果學員根本沒有登入，觸發防守閘門，拋出提示並自動導流
+            if (!isLoggedIn || !userId) {
+                showToast('請登入後再按讚！即將為您導向登入頁面...', 'fa-circle-exclamation', 'text-amber-400');
+
+                // 延遲 1.2 秒給予挑戰者肉眼閱讀時間，隨即將父視窗(或當前分頁)直接導流至個人頁
+                setTimeout(() => {
+                    // GOOGLE_SITES_URL 是個人挑戰頁的位置
+                    window.location.href = "https://sites.google.com/view/testtoaf/single0530";
+                }, 1200);
+                return;
+            }
+
+            // 防呆：已經按過讚就阻斷
+            if (myGivenLikes.includes(likeKey)) {
+                showToast('這一週您已經點過讚囉！', 'fa-circle-check', 'text-teal-400');
+                return;
+            }
+
+            // 前端先跑動畫：立刻將愛心渲染為已點讚狀態
             myGivenLikes.push(likeKey);
+
+            // 🎯 核心優化 2：連動大腦！點讚成功時，立刻更新這台手機的 `data_${userId}` 快取檔案
+            // 這樣學員切換回個人挑戰頁時，個人挑戰頁的「排行榜頁籤」才會跟著同步打勾、不會鬧雙胞！
+            const localDataStr = localStorage.getItem(`data_${userId}`);
+            if (localDataStr) {
+                try {
+                    const d = JSON.parse(localDataStr);
+                    d.myGivenLikes = myGivenLikes;
+                    localStorage.setItem(`data_${userId}`, JSON.stringify(d));
+                } catch (e) { }
+            }
 
             const btn = document.getElementById(`like-btn-${likeKey}`);
             if (btn) {
@@ -1544,11 +1695,15 @@
                 btn.onclick = (e) => { e.stopPropagation(); showToast('這一週您已經點過讚囉！', 'fa-circle-check', 'text-teal-400'); };
             }
 
+            // 發送訊號給 GAS 後端資料庫，將愛心計數真正寫入試算表
             callJsonpApi('likeReport', { targetUid: targetUid, weekId: weekId, likerUid: userId }, (res) => {
                 if (res.result === 'success') {
                     showToast('按讚加持成功！數據已同步至雲端排行榜。', 'fa-heart', 'text-pink-500');
                 } else {
                     showToast('按讚同步失敗：' + (res.message || '連線超時'), 'fa-circle-exclamation', 'text-pink-400');
+                    // 後端若失敗，前端回滾
+                    myGivenLikes = myGivenLikes.filter(k => k !== likeKey);
+                    if (selectedChallengerId) selectChallenger(selectedChallengerId);
                 }
             });
         };
