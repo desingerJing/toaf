@@ -162,6 +162,19 @@
     <div id="root"></div>
 
     <script type="text/babel">
+        (function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUrl = urlParams.get('redirect');
+        
+        // 檢查 localStorage，確認挑戰者是不是「剛剛才在成果頁按了登入，且點對密碼成功入庫」
+        // 或者是為了防止他卡在登入頁，我們直接在最頂端做網址判斷
+        if (redirectUrl && localStorage.getItem('no_plastic_logged_in') === 'true') {
+            // 🚀 0秒強行中斷！直接改寫網址，不給網頁任何畫出個人挑戰頁的機會
+            window.location.replace(redirectUrl); 
+            return;
+        }
+    })();
+
         const { useState, useEffect, useMemo, useRef } = React;
         // 🌟 終極安全防禦：直接用原生 JS 強行鎖定手機字體，不碰 CSS、不碰 JSX，100% 不會當機！
         document.body.style.webkitTextSizeAdjust = '100%';
@@ -2331,6 +2344,14 @@
                                 setTimeout(() => setAlertData(null), 1200);
 
                                 setIsLoggedIn(true);
+                                const urlParams = new URLSearchParams(window.location.search);
+                                const redirectUrl = urlParams.get('redirect');
+
+                                if (redirectUrl) {
+                                    // 🚀 0秒直接用 replace 蓋掉歷史紀錄並跳轉，完全不走 React 畫面
+                                    window.location.replace(redirectUrl);
+                                    return;
+                                }
                             } catch (err) {
                                 console.error("登入還原發生錯誤:", err);
                                 setIsLoggedIn(true);
