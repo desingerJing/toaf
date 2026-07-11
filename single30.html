@@ -226,26 +226,6 @@
             }
         ];
 
-        // ==========================================
-        // 終極修正：新增 Sites 沙盒專用強效 Cookie 記憶器
-        // ==========================================
-        const setSandboxCookie = (name, value, days) => {
-            const date = new Date();
-            date.setTime(date.getTime() + (days * 24 * 60 * 60 * 1000));
-            // 🌟 關鍵：必須加上 SameSite=None; Secure，否則 Google Sites 的 iframe 絕對讀不到
-            document.cookie = `${name}=${encodeURIComponent(value)}; expires=${date.toUTCString()}; path=/; SameSite=None; Secure`;
-        };
-
-        const getSandboxCookie = (name) => {
-            const nameEQ = name + "=";
-            const ca = document.cookie.split(';');
-            for (let i = 0; i < ca.length; i++) {
-                let c = ca[i].trim();
-                if (c.indexOf(nameEQ) === 0) return decodeURIComponent(c.substring(nameEQ.length, c.length));
-            }
-            return "";
-        };
-
         const callJsonpApi = (action, params, onSuccess, onError) => {
             const callbackName = `jsonp_${action}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
             let url = `${API_URL}?action=${action}&callback=${callbackName}&t=${Date.now()}`;
@@ -1338,15 +1318,15 @@
             }, [isLoggedIn, baseScore, dailyOracle]);
 
             // ==========================================
-            // 調整安全登出函數，保留使用者的自訂口袋名單
+            // 調整安全登出函數（新增 silent 參數支援背景清除）
             // ==========================================
-            const forceLogout = (reason = "") => {
-                // 1. 先把舊的自訂清單備份起來，防止被洗掉
+            const forceLogout = (reason = "", silent = false) => {
+                // 備份使用者的自訂口袋名單
                 const currentExtraTasks = localStorage.getItem(`data_${userId}`)
                     ? JSON.parse(localStorage.getItem(`data_${userId}`)).extraTasks
                     : DEFAULT_TASKS;
 
-                // 清除登入憑證與時間戳記
+                // 清除所有登入憑證與超時時間戳記
                 localStorage.removeItem('no_plastic_logged_in');
                 localStorage.removeItem('no_plastic_user_name');
                 localStorage.removeItem('last_activity_time');
@@ -1355,29 +1335,32 @@
                 sessionStorage.removeItem('no_plastic_user_name');
                 sessionStorage.removeItem('no_plastic_user_id');
 
-                // 2. 【核心修正】不直接刪除 data_${userId}，而是精準重置當天的勾選與分數狀態，但「留下 extraTasks」
+                // 精準重置當天的勾選與分數狀態，但「留下 extraTasks」
                 const clearDayData = {
                     lastTaskDate: new Date().toDateString(),
                     score: 0,
                     receivedLikesScore: 0,
-                    completedTasks: [], // 清空勾選
-                    syncedTasks: [],     // 清空同步
-                    unlockedItems: unlockedItems, // 保留歷史成就
-                    weeklyReports: weeklyReports, // 保留週報
-                    myGivenLikes: myGivenLikes,   // 保留按讚紀錄
+                    completedTasks: [],
+                    syncedTasks: [],
+                    unlockedItems: unlockedItems,
+                    weeklyReports: weeklyReports,
+                    myGivenLikes: myGivenLikes,
                     drawnOracleIds: drawnOracleIds,
-                    currentOracle: null,          // 登出時強迫把今天抽到的法語蓋掉，防髒資料
+                    currentOracle: null,
                     lastOracleDate: null,
-                    extraTasks: currentExtraTasks // ⭕ 完美保留使用者白天新增的所有自訂任務！
+                    extraTasks: currentExtraTasks
                 };
                 localStorage.setItem(`data_${userId}`, JSON.stringify(clearDayData));
 
-                // 還原 React 畫面狀態
+                // 🎯 核心優化點：如果是寂靜清除（silent），就到此為止！不改動 React 狀態，讓畫面維持原樣
+                if (silent) return;
+
+                // 若不是 silent（例如一般登出、或超時後按確認），才還原 React 畫面狀態
                 setIsLoggedIn(false);
                 setDailyOracle(null);
                 setCompletedTasks([]);
                 setSyncedTasks([]);
-                setExtraTasks(currentExtraTasks); // 讓未登入前的畫面也記住這份清單
+                setExtraTasks(currentExtraTasks);
 
                 if (reason) {
                     setCustomAlert({ title: "系統通知", message: reason });
@@ -1385,12 +1368,12 @@
             };
 
             // ==========================================
-            // 終極修正 1：雲端環境指紋自動重連機制 (完美破解 Google Sites iframe 隔離)
+            // 終極修正 1：雲端環境指紋自動重連機制
             // ==========================================
             useEffect(() => {
                 const lastActivity = parseInt(localStorage.getItem('last_activity_time') || sessionStorage.getItem('last_activity_time') || "0", 10);
                 const now = Date.now();
-                const oneHour = 60 * 60 * 1000;
+                const oneHour = 4 * 60 * 60 * 1000;
 
                 // A. 【超時安全機制】閒置 1 小時強制踢除
                 if (isLoggedIn && lastActivity > 0 && (now - lastActivity > oneHour)) {
@@ -1511,30 +1494,53 @@
             }, [isLoggedIn]);
 
             // ==========================================
-            // 新增：監聽使用者網頁編輯操作行為（重新計算1小時）
+            // 優化：超時閒置安全機制與活動時間更新（精準設定為 4 小時強迫登出）
             // ==========================================
             useEffect(() => {
                 if (!isLoggedIn) return;
+
+                // 🎯 核心調整：統一宣告 4 小時的毫秒數常數 (4 * 60 * 60 * 1000 = 14400000 毫秒)
+                const TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
                 const updateActivity = () => {
                     localStorage.setItem('last_activity_time', String(Date.now()));
                 };
 
-                // 只要有 點擊、打字、滾動、觸控 就算有在操作網頁
+                // 全方位操作活動監聽
                 window.addEventListener('click', updateActivity);
                 window.addEventListener('keydown', updateActivity);
                 window.addEventListener('scroll', updateActivity);
                 window.addEventListener('touchstart', updateActivity);
 
-                // 每 30 秒在背景幫 user 檢查一次有沒有超時閒置
+                // A. 🎯 臨界點 1：網頁載入/初始化瞬間的「冷啟動安全檢查」(已完美對齊 TIMEOUT_MS)
+                const lastActivityOnLoad = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
+                const nowOnLoad = Date.now();
+                if (lastActivityOnLoad > 0 && (nowOnLoad - lastActivityOnLoad > TIMEOUT_MS)) {
+                    forceLogout("由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。");
+                    return;
+                }
+
+                // B. 🎯 臨界點 2：網頁運行中，每 30 秒動態巡邏的「熱感應阻斷器」(已完美對齊 TIMEOUT_MS)
                 const checkTimeoutInterval = setInterval(() => {
                     const lastActivity = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
-                    if (lastActivity > 0 && (Date.now() - lastActivity > 60 * 60 * 1000)) {
-                        localStorage.removeItem('no_plastic_logged_in');
-                        localStorage.removeItem('last_activity_time');
-                        sessionStorage.removeItem('no_plastic_logged_in');
-                        setIsLoggedIn(false);
-                        setCustomAlert({ title: "系統通知", message: "由於您超過 1 小時未操作網頁，為了安全，系統已自動為您登出。" });
+
+                    if (lastActivity > 0 && (Date.now() - lastActivity > TIMEOUT_MS)) {
+                        clearInterval(checkTimeoutInterval);
+
+                        // 先斬後奏：在背景寂靜清除 localStorage 憑證，防備直接關閉或重整
+                        forceLogout("", true);
+
+                        // 彈出精緻阻斷提示框（文字同步修改為 4 小時，消除語意衝突）
+                        setCustomAlert({
+                            title: "系統通知",
+                            message: "由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。",
+                            onConfirm: () => {
+                                setIsLoggedIn(false);
+                                setDailyOracle(null);
+                                setCompletedTasks([]);
+                                setSyncedTasks([]);
+                            }
+                        });
                     }
                 }, 30000);
 
@@ -1545,7 +1551,7 @@
                     window.removeEventListener('touchstart', updateActivity);
                     clearInterval(checkTimeoutInterval);
                 };
-            }, [isLoggedIn]);
+            }, [isLoggedIn, userId]);
 
             const rankInfo = useMemo(() => getRankInfo(baseScore), [baseScore]);
             const isDirty = completedTasks.some(task => !syncedTasks.includes(task));
@@ -2229,7 +2235,7 @@
                                 if (uid) {
                                     const todayKey = new Date().toDateString();
 
-                                    // 1. 【今日法語卡片精準還原】
+                                    // 還原今日法語卡片
                                     if (userData.todayOracle && userData.todayOracle !== "未抽取" && userData.todayOracle !== "") {
                                         const match = String(userData.todayOracle).match(/\d+/);
                                         if (match) {
@@ -2243,7 +2249,7 @@
                                         setDailyOracle(null);
                                     }
 
-                                    // 2. 【自訂任務還原】
+                                    // 還原自訂任務與已完成
                                     let targetCompletedTasks = [];
                                     let currentExtra = [...DEFAULT_TASKS];
 
@@ -2274,11 +2280,9 @@
 
                                     setExtraTasks(currentExtra);
 
-                                    // 3. 還原基礎計分
                                     setBaseScore(Number(userData.totalScore) || 0);
                                     setReceivedLikesScore(Number(userData.receivedLikesScore) || 0);
 
-                                    // 4. 還原歷史狀態
                                     let targetDrawnIds = [];
                                     if (userData.drawnOracleIds) {
                                         targetDrawnIds = String(userData.drawnOracleIds).split(',').map(Number).filter(Boolean);
@@ -2288,7 +2292,7 @@
                                         setWeeklyReports(prev => ({ ...prev, ...userData.reports }));
                                     }
 
-                                    // 5. 【同步快取檔案】
+                                    // 同步本機快取檔案
                                     const dataToSaveImmediate = {
                                         lastTaskDate: todayKey,
                                         score: Number(userData.totalScore) || 0,
@@ -2307,24 +2311,16 @@
                                     localStorage.setItem(`data_${uid}`, JSON.stringify(dataToSaveImmediate));
                                 }
 
-                                const finalPhone = userData.lastThree || localStorage.getItem('saved_login_phone') || sessionStorage.getItem('saved_login_phone') || "";
-
                                 if (rememberMe) {
                                     localStorage.setItem('no_plastic_logged_in', 'true');
                                     localStorage.setItem('no_plastic_user_name', name);
                                     if (uid) localStorage.setItem('no_plastic_user_id', String(uid));
-
-                                    setSandboxCookie('saved_login_class', lClass, 30);
-                                    setSandboxCookie('saved_login_phone', String(finalPhone), 30);
-                                    setSandboxCookie('no_plastic_logged_in', 'true', 30);
-                                    setSandboxCookie('saved_remember_me', 'true', 30);
+                                    localStorage.setItem('saved_remember_me', 'true');
                                 } else {
                                     localStorage.removeItem('no_plastic_logged_in');
                                     sessionStorage.setItem('no_plastic_logged_in', 'true');
                                     sessionStorage.setItem('no_plastic_user_name', name);
                                     if (uid) sessionStorage.setItem('no_plastic_user_id', String(uid));
-
-                                    setSandboxCookie('no_plastic_logged_in', 'false', -1);
                                 }
 
                                 localStorage.setItem('last_activity_time', String(Date.now()));
@@ -2373,13 +2369,25 @@
                         </div>
                     )}
 
+                    {/* ====== 智慧型系統提示彈窗 ====== */}
                     {customAlert && (
-                        <div className="fixed inset-0 z-[300] bg-black/70 flex items-center justify-center p-6 backdrop-blur-md">
+                        <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-6 backdrop-blur-md z-[99999]">
                             <div className="bg-white rounded-[32px] p-8 text-center w-full max-w-xs shadow-2xl animate-fade-in border border-slate-100">
                                 <div className="text-4xl mb-4">⚠️</div>
                                 <h3 className="text-lg font-black mb-2 text-slate-800">{customAlert.title}</h3>
                                 <p className="text-xs text-slate-500 leading-relaxed font-medium mb-6 whitespace-pre-line">{customAlert.message}</p>
-                                <button onClick={() => setCustomAlert(null)} className="w-full py-3.5 bg-blue-900 text-white rounded-2xl font-black shadow-lg">確認</button>
+                                <button
+                                    onClick={() => {
+                                        // 🎯 核心優化點：如果這個提示框有綁定後續動作（如登出），就先執行它
+                                        if (typeof customAlert.onConfirm === 'function') {
+                                            customAlert.onConfirm();
+                                        }
+                                        setCustomAlert(null); // 關閉提示框
+                                    }}
+                                    className="w-full py-4 bg-blue-900 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-transform"
+                                >
+                                    確認
+                                </button>
                             </div>
                         </div>
                     )}
