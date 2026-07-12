@@ -809,6 +809,8 @@
             const [userName, setUserName] = useState(() => localStorage.getItem('no_plastic_user_name') || sessionStorage.getItem('no_plastic_user_name') || '');
             const [currentDay, setCurrentDay] = useState(1);
 
+            const [visibleCount, setVisibleCount] = useState(10); // 預設只顯示 10 筆
+            
             const [userId, setUserId] = useState(() => {
                 let id = localStorage.getItem('no_plastic_user_id') || sessionStorage.getItem('no_plastic_user_id');
                 if (!id) {
@@ -933,17 +935,18 @@
             // 🌟 核心功能新增：排行榜智慧追蹤錨點
             const [scrollToSelfTrigger, setScrollToSelfTrigger] = useState(false);
 
-            // 🌟 核心功能修正：改為智慧置中對齊，完美防禦過度捲動造成的排版外漏與手勢鎖死
+            // 🎯 排行榜智慧追蹤錨點：等搜尋結果渲染完畢後，將「我」溫和地捲動到螢幕正中央
             useEffect(() => {
                 if (activeTab === 'ranking' && !isLoadingRanking && scrollToSelfTrigger) {
+                    // 稍微給予 250ms 緩衝，確保 React 已經把其他同學過濾掉、搜尋結果完全渲染完畢
                     const timer = setTimeout(() => {
                         const selfEl = document.getElementById('leaderboard-self');
                         if (selfEl) {
-                            // 🎯 block: 'center' 會將「我」溫和地捲動到螢幕正中央，安全鎖定在網頁合法高度內
+                            // 🎯 block: 'center' 會將搜尋出來的「我」完美鎖定在螢幕正中央
                             selfEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             setScrollToSelfTrigger(false); // 執行完畢後釋放鎖定
                         }
-                    }, 150); // 給予 150ms 緩衝確保 DOM 完全渲染完畢
+                    }, 250);
                     return () => clearTimeout(timer);
                 }
             }, [activeTab, isLoadingRanking, scrollToSelfTrigger]);
@@ -1738,6 +1741,41 @@
                 }
             }, [realPlayers, userId]);
 
+            // 🎯 核心新增：IG 式自動捲動載入 (偵測距底部 150px 自動加載 10 筆)
+            useEffect(() => {
+                if (activeTab !== 'ranking' || isLoadingRanking) return;
+
+                const handleLeaderboardScroll = () => {
+                    // window.innerHeight: 螢幕視窗高度
+                    // window.scrollY: 目前捲動的垂直垂直高度
+                    // document.documentElement.scrollHeight: 整個網頁的總高度
+                    const scrollHeight = document.documentElement.scrollHeight;
+                    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+                    const clientHeight = window.innerHeight;
+
+                    // 當距離底部小於 150px 且目前畫面顯示的筆數小於排行榜總人數時
+                    if (scrollHeight - scrollTop - clientHeight <= 150) {
+                        const leaderboardWithRank = fullLeaderboard.map((p, i) => ({ ...p, originalRank: i }));
+                        const currentTotal = searchQuery.trim()
+                            ? leaderboardWithRank.filter(p =>
+                                p.name.includes(searchQuery.trim()) ||
+                                (p.className && p.className.includes(searchQuery.trim()))
+                            ).length
+                            : leaderboardWithRank.length;
+
+                        setVisibleCount(prev => {
+                            if (prev < currentTotal) {
+                                return prev + 10; // 一次加載 10 筆
+                            }
+                            return prev;
+                        });
+                    }
+                };
+
+                window.addEventListener('scroll', handleLeaderboardScroll);
+                return () => window.removeEventListener('scroll', handleLeaderboardScroll);
+            }, [activeTab, isLoadingRanking, fullLeaderboard, searchQuery, visibleCount]);
+
             const fetchLeaderboard = () => {
                 setIsLoadingRanking(true);
                 callJsonpApi('getLeaderboard', {},
@@ -2207,13 +2245,20 @@
                 }
             };
 
-            const handleTabChange = (tabId) => {
-                if (allowLeave) { setActiveTab(tabId); setSearchQuery(''); return; }
+            const handleTabChange = (tabId, keepSearch = false) => {
+                if (allowLeave) {
+                    setActiveTab(tabId);
+                    if (!keepSearch) setSearchQuery('');
+                    return;
+                }
                 if (isDirty) { setPendingTab(tabId); setShowLeaveAlert(true); return; }
 
                 setActiveTab(tabId);
-                setSearchQuery('');
-                // 🌟 完美拔除自動更新，改為純前端秒開模式，數據加載全權交由右上角手動按鈕處理
+                if (!keepSearch) setSearchQuery(''); // ✨ 只有在 keepSearch 為 false 時才清空
+
+                if (tabId === 'ranking') {
+                    setVisibleCount(10);
+                }
             };
 
             const handleTouchStart = (e) => { setTouchEndX(null); setTouchStartX(e.targetTouches[0].clientX); };
@@ -3001,14 +3046,16 @@
                                     </div>
 
                                     <div className="text-right">
-                                        {/* 🌟 核心功能修正：點擊時立刻啟動第 242 行的智慧引信，並安心交給大腦處理 */}
+                                        {/* 🎯 核心修改：點擊 PT 分數後，自動將名字帶入排行榜搜尋框、重置載入筆數，並切換分頁 */}
                                         <div
                                             onClick={() => {
+                                                setSearchQuery(challengerName);
+                                                setVisibleCount(Infinity);
                                                 setScrollToSelfTrigger(true);
-                                                handleTabChange('ranking');
+                                                handleTabChange('ranking', true);
                                             }}
                                             className="flex items-baseline justify-end gap-1 cursor-pointer select-none group active:scale-95 transition-transform"
-                                            title="點擊前往排行榜查看我的名次"
+                                            title="點擊自動搜尋我的名次"
                                         >
                                             <span className="text-4xl font-black text-white group-hover:text-amber-300 italic tracking-tighter leading-none drop-shadow-lg transition-colors">{baseScore}</span>
                                             <span className="text-[10px] text-cyan-200/70 group-hover:text-amber-300 font-black uppercase tracking-widest transition-colors">PT</span>
@@ -3555,7 +3602,10 @@
                                     <input
                                         type="text"
                                         value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        onChange={(e) => {
+                                            setSearchQuery(e.target.value);
+                                            setVisibleCount(10); // 搜尋時重置懶載入筆數，防止畫面卡頓
+                                        }}
                                         placeholder="輸入班別或挑戰者名稱..."
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 pl-10 text-[13px] font-bold focus:outline-none focus:border-blue-400 transition-colors shadow-sm"
                                     />
@@ -3590,157 +3640,180 @@
                                                 : leaderboardWithRank;
 
                                             if (displayLeaderboard.length === 0) {
-                                                return (
-                                                    <div className="text-center text-slate-400 py-10 font-bold text-[13px] bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                                        找不到符合「{searchQuery}」的紀錄
-                                                    </div>
-                                                );
-                                            }
-
-                                            return displayLeaderboard.map((player) => {
-                                                const index = player.originalRank;
-                                                const pRank = getRankInfo(player.baseScore);
-                                                const isTop3 = index < 3;
-                                                const isExpanded = expandedPlayerId === player.id;
-                                                const playerLikes = player.isSelf ? receivedLikesScore : Object.values(player.reports || {}).reduce((sum, r) => sum + (r.likes || 0), 0);
-
-                                                let rankStyles = "";
-                                                let textPrimary = "text-slate-800";
-                                                let textSecondary = "text-slate-400";
-                                                let scoreColor = "text-slate-800";
-
-                                                if (index === 0) {
-                                                    rankStyles = "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 shadow-amber-200 shadow-lg scale-[1.01] border-amber-300";
-                                                    textPrimary = "text-white"; textSecondary = "text-amber-100"; scoreColor = "text-white";
-                                                } else if (index === 1) {
-                                                    rankStyles = "bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 shadow-slate-200 shadow-md border-slate-200";
-                                                    textPrimary = "text-white"; textSecondary = "text-slate-100"; scoreColor = "text-white";
-                                                } else if (index === 2) {
-                                                    rankStyles = "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 shadow-orange-200 shadow-md border-orange-300";
-                                                    textPrimary = "text-white"; textSecondary = "text-orange-100"; scoreColor = "text-white";
-                                                } else if (player.isSelf) {
-                                                    rankStyles = "bg-blue-900 border-blue-900 shadow-blue-200 shadow-lg ring-4 ring-blue-100";
-                                                    textPrimary = "text-white"; textSecondary = "text-blue-200"; scoreColor = "text-white";
-                                                } else {
-                                                    rankStyles = "bg-white border-slate-100 shadow-sm";
+                                                    return (
+                                                        <div className="text-center text-slate-400 py-10 font-bold text-[13px] bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                                            找不到符合「{searchQuery}」的紀錄
+                                                        </div>
+                                                    );
                                                 }
 
-                                                const submittedReports = Object.keys(player.reports || {})
-                                                    .filter(weekId => player.reports[weekId].submitted)
-                                                    .map(weekId => ({ weekId, ...player.reports[weekId] }));
+                                                // 🎯 [新加入的步驟 1]：先用 slice 裁切出目前想顯示的人數（例如 10 人）
+                                                const slicedLeaderboard = displayLeaderboard.slice(0, visibleCount);
 
+                                                // 🎯 [新加入的步驟 2]：外面多包一層 <div>，把裁切後的清單與按鈕裝在一起
                                                 return (
-                                                    // 🌟 核心功能新增：如果該列是自己，就綁定專屬 ID 供 JavaScript 秒速追蹤定位
-                                                    <div key={player.id} id={player.isSelf ? "leaderboard-self" : undefined} className="transition-all duration-300 text-left">
+                                                    <div className="space-y-2.5">
 
-                                                        <div
-                                                            onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
-                                                            className={`flex items-center gap-3 py-2.5 px-4 rounded-xl border transition-all relative overflow-hidden cursor-pointer ${rankStyles} ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
-                                                        >
-                                                            <div className="flex flex-col items-center justify-center w-8 relative">
-                                                                <span className={`text-xs font-black italic ${isTop3 ? 'text-white text-base' : player.isSelf ? 'text-white' : 'text-slate-300'}`}>{index + 1}</span>
-                                                            </div>
-                                                            <div className="flex-1 text-left">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className={`text-[13px] font-black tracking-wide ${textPrimary}`}>
-                                                                        {player.className ? `${player.className} ${player.name}` : player.name}
-                                                                    </span>
-                                                                    {player.isSelf && <span className={`${isTop3 ? 'bg-white/20' : 'bg-white'} ${isTop3 ? 'text-white' : 'text-blue-900'} text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter`}>ME</span>}
-                                                                </div>
-                                                                <p className={`text-[9px] font-bold ${textSecondary}`}>{pRank.title}</p>
-                                                            </div>
-                                                            <div className="text-right flex flex-col items-end justify-center">
-                                                                <div className="flex items-center justify-end gap-1 mb-0.5">
-                                                                    <span className={`text-[15px] font-black italic tracking-tighter ${scoreColor}`}>{player.baseScore}</span>
-                                                                    <span className={`text-[7px] font-black uppercase tracking-tighter opacity-60 ${scoreColor}`}>PT</span>
-                                                                </div>
-                                                                <div className={`flex items-center justify-end gap-1.5 text-[8px] font-black ${isTop3 || player.isSelf ? 'text-white/90' : 'text-slate-400'}`}>
-                                                                    <span className="flex items-center gap-0.5"><Icons.Sparkles /> {player.achievements}</span>
-                                                                    <span className="flex items-center gap-0.5"><span className="text-[7px] opacity-80">❤️</span> {playerLikes}</span>
-                                                                </div>
-                                                                <div className={`mt-0.5 text-[8px] transition-transform ${isExpanded ? 'rotate-180' : ''} ${isTop3 || player.isSelf ? 'text-white/60' : 'text-slate-300'}`}>
-                                                                    ▼
-                                                                </div>
-                                                            </div>
-                                                        </div>
+                                                        {/* 這裡改用被裁切後的輕量陣列 slicedLeaderboard 來跑 map */}
+                                                        {slicedLeaderboard.map((player) => {
+                                                            const index = player.originalRank;
+                                                            const pRank = getRankInfo(player.baseScore);
+                                                            const isTop3 = index < 3;
+                                                            const isExpanded = expandedPlayerId === player.id;
+                                                            const playerLikes = player.isSelf ? receivedLikesScore : Object.values(player.reports || {}).reduce((sum, r) => sum + (r.likes || 0), 0);
 
-                                                        {isExpanded && (
-                                                            <div className="p-3.5 bg-slate-50 border border-t-0 border-slate-200 rounded-b-xl shadow-inner animate-fade-in text-left">
-                                                                {submittedReports.length === 0 ? (
-                                                                    <p className="text-center text-xs text-slate-400 font-bold py-4">這位玩家尚無公開的回饋紀錄</p>
-                                                                ) : (
-                                                                    <div className="space-y-4">
-                                                                        {submittedReports.map(report => {
-                                                                            const weekConfig = WEEKLY_CONFIG.find(w => w.id === report.weekId);
-                                                                            const likeKey = `${player.id}_${report.weekId}`;
-                                                                            const hasLiked = myGivenLikes.includes(likeKey);
-                                                                            const isMe = player.isSelf;
+                                                            let rankStyles = "";
+                                                            let textPrimary = "text-slate-800";
+                                                            let textSecondary = "text-slate-400";
+                                                            let scoreColor = "text-slate-800";
 
-                                                                            return (
-                                                                                <div key={report.weekId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-left">
-                                                                                    <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-50">
-                                                                                        <div className="flex items-center gap-2">
-                                                                                            <span className="text-xs font-black text-[#173E98]">{weekConfig?.title}心得</span>
-                                                                                            <img
-                                                                                                src={(report.approved === true || String(report.approved).trim().toUpperCase() === 'V') ? "https://paymiou.github.io/paymiou/August/approval.png" : "https://paymiou.github.io/paymiou/August/Under%20review.png"}
-                                                                                                className="h-[18px] object-contain drop-shadow-sm cursor-pointer hover:scale-110 transition-transform active:scale-95"
-                                                                                                alt="status"
-                                                                                                title="點擊查看狀態"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    const isApproved = (report.approved === true || String(report.approved).trim().toUpperCase() === 'V');
-                                                                                                    showToast(isApproved ? '班幹部審核通過' : '班幹部審核中', isApproved ? 'approved' : 'pending');
-                                                                                                }}
-                                                                                            />
-                                                                                        </div>
-                                                                                        <button
-                                                                                            onClick={(e) => handleLikeClick(player.id, report.weekId, e)}
-                                                                                            disabled={isMe || hasLiked}
-                                                                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black transition-all ${isMe ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
-                                                                                                hasLiked ? 'bg-pink-50 text-pink-500 border border-pink-200' : 'bg-slate-100 text-slate-500 hover:bg-pink-50 hover:text-pink-500 active:scale-90'
-                                                                                                }`}
-                                                                                        >
-                                                                                            <span className={hasLiked ? 'text-pink-500' : 'text-slate-400'}>{hasLiked ? '❤️' : '🤍'}</span>
-                                                                                            <span>{report.likes || 0}</span>
-                                                                                        </button>
-                                                                                    </div>
-                                                                                    <p className="text-[12px] text-slate-700 font-bold leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere text-justify mb-3">
-                                                                                        {report.content}
-                                                                                    </p>
-                                                                                    <div className="grid grid-cols-3 gap-2">
-                                                                                        {report.photos.map((photo, i) => {
-                                                                                            const isValidPhoto = photo && photo !== 'uploaded_photo_url';
-                                                                                            return (
-                                                                                                <div
-                                                                                                    key={i}
-                                                                                                    className={`aspect-square bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden ${isValidPhoto ? 'cursor-pointer hover:opacity-85' : ''}`}
-                                                                                                    onClick={() => {
-                                                                                                        if (isValidPhoto) {
-                                                                                                            const rawValidPhotos = report.photos.filter(p => p && p !== 'uploaded_photo_url');
-                                                                                                            const validPhotos = rawValidPhotos.map(getDirectImageUrl);
-                                                                                                            setLightbox({ isOpen: true, photos: validPhotos, currentIndex: rawValidPhotos.indexOf(photo) });
-                                                                                                        }
-                                                                                                    }}
-                                                                                                >
-                                                                                                    {isValidPhoto ? (
-                                                                                                        <img src={getDirectImageUrl(photo)} className="w-full h-full object-cover" alt="photo" />
-                                                                                                    ) : (
-                                                                                                        <img src="https://paymiou.github.io/paymiou/August/reef.png" className="w-6 h-6 opacity-30 grayscale" alt="placeholder" />
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            );
-                                                                                        })}
-                                                                                    </div>
-                                                                                </div>
-                                                                            );
-                                                                        })}
+                                                            if (index === 0) {
+                                                                rankStyles = "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 shadow-amber-200 shadow-lg scale-[1.01] border-amber-300";
+                                                                textPrimary = "text-white"; textSecondary = "text-amber-100"; scoreColor = "text-white";
+                                                            } else if (index === 1) {
+                                                                rankStyles = "bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 shadow-slate-200 shadow-md border-slate-200";
+                                                                textPrimary = "text-white"; textSecondary = "text-slate-100"; scoreColor = "text-white";
+                                                            } else if (index === 2) {
+                                                                rankStyles = "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 shadow-orange-200 shadow-md border-orange-300";
+                                                                textPrimary = "text-white"; textSecondary = "text-orange-100"; scoreColor = "text-white";
+                                                            } else if (player.isSelf) {
+                                                                rankStyles = "bg-blue-900 border-blue-900 shadow-blue-200 shadow-lg ring-4 ring-blue-100";
+                                                                textPrimary = "text-white"; textSecondary = "text-blue-200"; scoreColor = "text-white";
+                                                            } else {
+                                                                rankStyles = "bg-white border-slate-100 shadow-sm";
+                                                            }
+
+                                                            const submittedReports = Object.keys(player.reports || {})
+                                                                .filter(weekId => player.reports[weekId].submitted)
+                                                                .map(weekId => ({ weekId, ...player.reports[weekId] }));
+
+                                                            // 🌟 這裡面完完全全就是你原本寫的卡片內容，完全沒有動！
+                                                            return (
+                                                                <div key={player.id} id={player.isSelf ? "leaderboard-self" : undefined} className="transition-all duration-300 text-left">
+                                                                    <div
+                                                                        onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
+                                                                        className={`flex items-center gap-3 py-2.5 px-4 rounded-xl border transition-all relative overflow-hidden cursor-pointer ${rankStyles} ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
+                                                                    >
+                                                                        <div className="flex flex-col items-center justify-center w-8 relative">
+                                                                            <span className={`text-xs font-black italic ${isTop3 ? 'text-white text-base' : player.isSelf ? 'text-white' : 'text-slate-300'}`}>{index + 1}</span>
+                                                                        </div>
+                                                                        <div className="flex-1 text-left">
+                                                                            <div className="flex items-center gap-1.5">
+                                                                                <span className={`text-[13px] font-black tracking-wide ${textPrimary}`}>
+                                                                                    {player.className ? `${player.className} ${player.name}` : player.name}
+                                                                                </span>
+                                                                                {player.isSelf && <span className={`${isTop3 ? 'bg-white/20' : 'bg-white'} ${isTop3 ? 'text-white' : 'text-blue-900'} text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter`}>ME</span>}
+                                                                            </div>
+                                                                            <p className={`text-[9px] font-bold ${textSecondary}`}>{pRank.title}</p>
+                                                                        </div>
+                                                                        <div className="text-right flex flex-col items-end justify-center">
+                                                                            <div className="flex items-center justify-end gap-1 mb-0.5">
+                                                                                <span className={`text-[15px] font-black italic tracking-tighter ${scoreColor}`}>{player.baseScore}</span>
+                                                                                <span className={`text-[7px] font-black uppercase tracking-tighter opacity-60 ${scoreColor}`}>PT</span>
+                                                                            </div>
+                                                                            <div className={`flex items-center justify-end gap-1.5 text-[8px] font-black ${isTop3 || player.isSelf ? 'text-white/90' : 'text-slate-400'}`}>
+                                                                                <span className="flex items-center gap-0.5"><Icons.Sparkles /> {player.achievements}</span>
+                                                                                <span className="flex items-center gap-0.5"><span className="text-[7px] opacity-80">❤️</span> {playerLikes}</span>
+                                                                            </div>
+                                                                            <div className={`mt-0.5 text-[8px] transition-transform ${isExpanded ? 'rotate-180' : ''} ${isTop3 || player.isSelf ? 'text-white/60' : 'text-slate-300'}`}>
+                                                                                ▼
+                                                                            </div>
+                                                                        </div>
                                                                     </div>
-                                                                )}
+
+                                                                    {isExpanded && (
+                                                                        <div className="p-3.5 bg-slate-50 border border-t-0 border-slate-200 rounded-b-xl shadow-inner animate-fade-in text-left">
+                                                                            {submittedReports.length === 0 ? (
+                                                                                <p className="text-center text-xs text-slate-400 font-bold py-4">這位玩家尚無公開的回饋紀錄</p>
+                                                                            ) : (
+                                                                                <div className="space-y-4">
+                                                                                    {submittedReports.map(report => {
+                                                                                        const weekConfig = WEEKLY_CONFIG.find(w => w.id === report.weekId);
+                                                                                        const likeKey = `${player.id}_${report.weekId}`;
+                                                                                        const hasLiked = myGivenLikes.includes(likeKey);
+                                                                                        const isMe = player.isSelf;
+
+                                                                                        return (
+                                                                                            <div key={report.weekId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-left">
+                                                                                                <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-50">
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <span className="text-xs font-black text-[#173E98]">{weekConfig?.title}心得</span>
+                                                                                                        <img
+                                                                                                            src={(report.approved === true || String(report.approved).trim().toUpperCase() === 'V') ? "https://paymiou.github.io/paymiou/August/approval.png" : "https://paymiou.github.io/paymiou/August/Under%20review.png"}
+                                                                                                            className="h-[18px] object-contain drop-shadow-sm cursor-pointer hover:scale-110 transition-transform active:scale-95"
+                                                                                                            alt="status"
+                                                                                                            title="點擊查看狀態"
+                                                                                                            onClick={(e) => {
+                                                                                                                e.stopPropagation();
+                                                                                                                const isApproved = (report.approved === true || String(report.approved).trim().toUpperCase() === 'V');
+                                                                                                                showToast(isApproved ? '班幹部審核通過' : '班幹部審核中', isApproved ? 'approved' : 'pending');
+                                                                                                            }}
+                                                                                                        />
+                                                                                                    </div>
+                                                                                                    <button
+                                                                                                        onClick={(e) => handleLikeClick(player.id, report.weekId, e)}
+                                                                                                        disabled={isMe || hasLiked}
+                                                                                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black transition-all ${isMe ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
+                                                                                                            hasLiked ? 'bg-pink-50 text-pink-500 border border-pink-200' : 'bg-slate-100 text-slate-500 hover:bg-pink-50 hover:text-pink-500 active:scale-90'
+                                                                                                            }`}
+                                                                                                    >
+                                                                                                        <span className={hasLiked ? 'text-pink-500' : 'text-slate-400'}>{hasLiked ? '❤️' : '🤍'}</span>
+                                                                                                        <span>{report.likes || 0}</span>
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                                <p className="text-[12px] text-slate-700 font-bold leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere text-justify mb-3">
+                                                                                                    {report.content}
+                                                                                                </p>
+                                                                                                <div className="grid grid-cols-3 gap-2">
+                                                                                                    {report.photos.map((photo, i) => {
+                                                                                                        const isValidPhoto = photo && photo !== 'uploaded_photo_url';
+                                                                                                        return (
+                                                                                                            <div
+                                                                                                                key={i}
+                                                                                                                className={`aspect-square bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden ${isValidPhoto ? 'cursor-pointer hover:opacity-85' : ''}`}
+                                                                                                                onClick={() => {
+                                                                                                                    if (isValidPhoto) {
+                                                                                                                        const rawValidPhotos = report.photos.filter(p => p && p !== 'uploaded_photo_url');
+                                                                                                                        const validPhotos = rawValidPhotos.map(getDirectImageUrl);
+                                                                                                                        setLightbox({ isOpen: true, photos: validPhotos, currentIndex: rawValidPhotos.indexOf(photo) });
+                                                                                                                    }
+                                                                                                                }}
+                                                                                                            >
+                                                                                                                {isValidPhoto ? (
+                                                                                                                    <img src={getDirectImageUrl(photo)} className="w-full h-full object-cover" alt="photo" />
+                                                                                                                ) : (
+                                                                                                                    <img src="https://paymiou.github.io/paymiou/August/reef.png" className="w-6 h-6 opacity-30 grayscale" alt="placeholder" />
+                                                                                                                )}
+                                                                                                            </div>
+                                                                                                        );
+                                                                                                    })}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    })}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            );
+                                                        })}
+
+                                                        {/* 🎯 [全新修改]：拔除傳統點擊按鈕，改為 IG 式滑動底部提示線 */}
+                                                        {displayLeaderboard.length > visibleCount ? (
+                                                            <div className="py-6 text-center text-slate-400 font-bold text-[11px] tracking-widest animate-pulse flex items-center justify-center gap-2">
+                                                                <div className="w-3 border-t border-slate-200"></div>
+                                                                <span>⏳ 往下捲動自動加載挑戰者 (還有 {displayLeaderboard.length - visibleCount} 筆)</span>
+                                                                <div className="w-3 border-t border-slate-200"></div>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="py-6 text-center text-slate-300 font-bold text-[10px] tracking-[0.2em] uppercase">
+                                                                ✨ 已載入全數挑戰者名單 ✨
                                                             </div>
                                                         )}
+
                                                     </div>
                                                 );
-                                            });
                                         })()
                                     )}
                                 </div>
