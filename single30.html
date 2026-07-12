@@ -16,7 +16,7 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@400;600;900&display=swap');
 
         html {
-            -webkit-text-size-adjust: 100%; /* 防止 iOS Safari 自動縮放字體 */
+            -webkit-text-size-adjust: 100%;
             -moz-text-size-adjust: 100%;
             -ms-text-size-adjust: 100%;
             text-size-adjust: 100%;
@@ -159,7 +159,7 @@
 </head>
 
 <body class="bg-slate-100 min-h-screen overflow-x-hidden">
-    <div id="root"></div>
+    <div id="root" class="relative"></div>
 
     <script type="text/babel">
         (function() {
@@ -1054,28 +1054,49 @@
                             const el2 = document.getElementById('tour-add-action-btn');
 
                             if (el1 && el2) {
-                                // 讓標題列完美貼頂（扣除 65px）
+                                // 🚀 修改 1：讓『今日淨塑行持項目/參考清單』這橫列（el1）絕對頂部距離，完美貼在頁籤下方 10px 的地方 (同樣扣除 72px)
                                 const absoluteTop = el1.getBoundingClientRect().top + window.pageYOffset;
                                 window.scrollTo({
-                                    top: Math.max(0, absoluteTop - 65),
+                                    top: Math.max(0, absoluteTop - 72),
                                     behavior: 'smooth'
                                 });
 
-                                // 畫面捲動靜止後 (350ms)，立刻精準亮起雙高光
+                                // 畫面捲動靜止後 (350ms)，動態計算絕對座標並畫上 absolute 雙高光
                                 setTimeout(() => {
-                                    const r1 = el1.getBoundingClientRect();
-                                    const r2 = el2.getBoundingClientRect();
+                                    const realEl1 = document.getElementById('tour-task-header');
+                                    const realEl2 = document.getElementById('tour-add-action-btn');
 
-                                    setActiveSpotlight({
-                                        target: 'task-area',
-                                        isDual: true,
-                                        box1: { top: r1.top, left: r1.left, width: r1.width, height: r1.height },
-                                        box2: { top: r2.top, left: r2.left, width: r2.width, height: r2.height }
-                                    });
+                                    if (realEl1 && realEl2) {
+                                        const r1 = realEl1.getBoundingClientRect();
+                                        const r2 = realEl2.getBoundingClientRect();
+
+                                        // 🚀 修改 2：計算第一個高光方框（標題與參考清單）到網頁最頂端的真實物理距離
+                                        let actualTop1 = 0;
+                                        let currentEl1 = realEl1;
+                                        while (currentEl1) {
+                                            actualTop1 += currentEl1.offsetTop;
+                                            currentEl1 = currentEl1.offsetParent;
+                                        }
+
+                                        // 🚀 修改 3：計算第二個高光方框（底下的自訂輸入按鈕列）到網頁最頂端的真實物理距離
+                                        let actualTop2 = 0;
+                                        let currentEl2 = realEl2;
+                                        while (currentEl2) {
+                                            actualTop2 += currentEl2.offsetTop;
+                                            currentEl2 = currentEl2.offsetParent;
+                                        }
+
+                                        setActiveSpotlight({
+                                            target: 'task-area',
+                                            isDual: true,
+                                            box1: { top: actualTop1, left: r1.left, width: r1.width, height: realEl1.offsetHeight },
+                                            box2: { top: actualTop2, left: r2.left, width: r2.width, height: realEl2.offsetHeight }
+                                        });
+                                    }
                                 }, 350);
                             }
                         }, 150);
-                        return; // 🎯 成功攔截！不讓它走到底下的常規單高光步驟
+                        return; // 成功攔截！
                     }
 
                     // ========================================================
@@ -1100,32 +1121,45 @@
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
 
                                 setTimeout(() => {
-                                    const basePanel = document.getElementById('tour-score-panel');
-                                    if (basePanel) {
-                                        const panelRect = basePanel.getBoundingClientRect();
+                                    // 🚀 核心修正：不借用記分板了，直接抓水母圖示本體元件！
+                                    const jellyfishEl = document.getElementById('tour-jellyfish');
+                                    if (jellyfishEl) {
+                                        const jellyRect = jellyfishEl.getBoundingClientRect();
+
+                                        // 計算水母本體到網頁最頂端的真實 HTML 絕對物理距離
+                                        let actualTop = 0;
+                                        let currentEl = jellyfishEl;
+                                        while (currentEl) {
+                                            actualTop += currentEl.offsetTop;
+                                            currentEl = currentEl.offsetParent;
+                                        }
+
+                                        // 讓高光綠框完美包覆水母本體（微調寬高比原本更精準）
                                         setActiveSpotlight({
-                                            top: panelRect.top - 30,
-                                            left: panelRect.left - 12,
-                                            width: 56,
-                                            height: 70,
+                                            top: actualTop - 4,
+                                            left: jellyRect.left - 4,
+                                            width: jellyRect.width + 8,
+                                            height: jellyRect.height + 8,
                                             target: nextStep.target
                                         });
                                     }
                                 }, 350);
-
-                                // 🌟 處理第六步「抽籤按鈕」：專屬置中邏輯
                             } else if (nextStep.target === 'draw-btn') {
                                 const rect = el.getBoundingClientRect();
                                 const absoluteTop = rect.top + window.pageYOffset;
-                                const targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+                                const targetScrollTop = absoluteTop - window.innerHeight + rect.height + 10;
+
                                 const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
                                 window.scrollTo({ top: Math.min(maxScroll, Math.max(0, targetScrollTop)), behavior: 'smooth' });
 
                                 setTimeout(() => {
                                     const finalRect = el.getBoundingClientRect();
+                                    const absoluteElementTop = finalRect.top + window.pageYOffset;
                                     setActiveSpotlight({
-                                        top: finalRect.top, left: finalRect.left,
-                                        width: finalRect.width, height: finalRect.height,
+                                        top: absoluteElementTop,
+                                        left: finalRect.left,
+                                        width: finalRect.width,
+                                        height: finalRect.height,
                                         target: nextStep.target
                                     });
                                 }, 300);
@@ -1134,7 +1168,16 @@
                             } else {
                                 const rect = el.getBoundingClientRect();
                                 const absoluteTop = rect.top + window.pageYOffset;
-                                const targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+
+                                // 🌟 新增：如果是步驟 3、4、5，強制讓捲動目標歸零（回到頂端）
+                                const topTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
+                                let targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+                                if (topTargets.includes(nextStep.target)) {
+                                    targetScrollTop = 0;
+                                } else if (nextStep.target === 'core-task') {
+                                    targetScrollTop = Math.max(0, absoluteTop - 72);
+                                }
+
                                 const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
 
                                 window.scrollTo({
@@ -1146,6 +1189,8 @@
                                     const finalRect = el.getBoundingClientRect();
                                     let adjustedTop = finalRect.top;
                                     let adjustedHeight = finalRect.height;
+                                    let adjustedLeft = finalRect.left;
+                                    let adjustedWidth = finalRect.width;
 
                                     // 第三步的綠框高度對齊微調
                                     if (nextStep.target === 'nav-collection') {
@@ -1153,10 +1198,31 @@
                                         adjustedHeight = finalRect.height - 4;
                                     }
 
+                                    // 🚀 核心修正：強行修正第 7 步的目標元素。直接綁定精準的 DOM 節點與 HTML 絕對頂部高度
+                                    if (nextStep.target === 'core-task') {
+                                        const realCoreTaskEl = document.getElementById('tour-core-task');
+                                        if (realCoreTaskEl) {
+                                            const coreRect = realCoreTaskEl.getBoundingClientRect();
+
+                                            // 沿著父級節點一路往上累加 offsetTop，取得它相對於整個網頁最頂端的物理座標
+                                            let actualTop = 0;
+                                            let currentEl = realCoreTaskEl;
+                                            while (currentEl) {
+                                                actualTop += currentEl.offsetTop;
+                                                currentEl = currentEl.offsetParent;
+                                            }
+
+                                            adjustedTop = actualTop;
+                                            adjustedHeight = realCoreTaskEl.offsetHeight;
+                                            adjustedLeft = coreRect.left;
+                                            adjustedWidth = coreRect.width;
+                                        }
+                                    }
+
                                     setActiveSpotlight({
                                         top: adjustedTop,
-                                        left: finalRect.left,
-                                        width: finalRect.width,
+                                        left: adjustedLeft,
+                                        width: adjustedWidth,
                                         height: adjustedHeight,
                                         target: nextStep.target
                                     });
@@ -1183,6 +1249,13 @@
                 setTourIndex(prevIndex);
                 const nextStep = TOUR_STEPS[prevIndex];
 
+                if (nextStep.target === 'nav-collection') setActiveTab('collection');
+                if (nextStep.target === 'nav-report') setActiveTab('report');
+                if (nextStep.target === 'nav-ranking') setActiveTab('ranking');
+                if (nextStep.target === 'task-area' || nextStep.target === 'draw-btn' || nextStep.target === 'core-task' || nextStep.target === 'score-panel' || nextStep.target === 'header') {
+                    setActiveTab('daily');
+                }
+
                 // 🌟 1. 處理返回第八步 (雙高光關卡)
                 if (nextStep.target === 'task-area') {
                     setActiveTab('daily');
@@ -1192,24 +1265,45 @@
                         const el2 = document.getElementById('tour-add-action-btn');
 
                         if (el1 && el2) {
-                            // 讓標題列完美貼頂（扣除 65px）
+                            // 🚀 修改 1：返回時也精準讓『今日淨塑行持項目/參考清單』這橫列（el1）完美貼在頁籤下方 10px 處
                             const absoluteTop = el1.getBoundingClientRect().top + window.pageYOffset;
                             window.scrollTo({
-                                top: Math.max(0, absoluteTop - 65),
+                                top: Math.max(0, absoluteTop - 72),
                                 behavior: 'smooth'
                             });
 
-                            // 延遲 350ms，等捲動「完全靜止」後再畫雙綠框
+                            // 延遲 350ms，等捲動「完全靜止」後再畫絕對座標的雙高光
                             setTimeout(() => {
-                                const r1 = el1.getBoundingClientRect();
-                                const r2 = el2.getBoundingClientRect();
+                                const realEl1 = document.getElementById('tour-task-header');
+                                const realEl2 = document.getElementById('tour-add-action-btn');
 
-                                setActiveSpotlight({
-                                    target: 'task-area',
-                                    isDual: true,
-                                    box1: { top: r1.top, left: r1.left, width: r1.width, height: r1.height },
-                                    box2: { top: r2.top, left: r2.left, width: r2.width, height: r2.height }
-                                });
+                                if (realEl1 && realEl2) {
+                                    const r1 = realEl1.getBoundingClientRect();
+                                    const r2 = realEl2.getBoundingClientRect();
+
+                                    // 🚀 修改 2：計算第一個高光方框到網頁最頂端的真實物理距離
+                                    let actualTop1 = 0;
+                                    let currentEl1 = realEl1;
+                                    while (currentEl1) {
+                                        actualTop1 += currentEl1.offsetTop;
+                                        currentEl1 = currentEl1.offsetParent;
+                                    }
+
+                                    // 🚀 修改 3：計算第二個高光方框到網頁最頂端的真實物理距離
+                                    let actualTop2 = 0;
+                                    let currentEl2 = realEl2;
+                                    while (currentEl2) {
+                                        actualTop2 += currentEl2.offsetTop;
+                                        currentEl2 = currentEl2.offsetParent;
+                                    }
+
+                                    setActiveSpotlight({
+                                        target: 'task-area',
+                                        isDual: true,
+                                        box1: { top: actualTop1, left: r1.left, width: r1.width, height: realEl1.offsetHeight },
+                                        box2: { top: actualTop2, left: r2.left, width: r2.width, height: realEl2.offsetHeight }
+                                    });
+                                }
                             }, 350);
                         }
                     }, 150);
@@ -1236,37 +1330,47 @@
                         window.scrollTo({ top: 0, behavior: 'smooth' });
 
                         setTimeout(() => {
-                            // 💡 關鍵：直接抓取第二步的「整個記分板」作為基準點
-                            const basePanel = document.getElementById('tour-score-panel');
+                            // 🚀 核心修正：不借用記分板了，直接抓水母圖示本體元件！
+                            const jellyfishEl = document.getElementById('tour-jellyfish');
+                            if (jellyfishEl) {
+                                const jellyRect = jellyfishEl.getBoundingClientRect();
 
-                            if (basePanel) {
-                                const panelRect = basePanel.getBoundingClientRect();
+                                // 計算水母本體到網頁最頂端的真實 HTML 絕對物理距離
+                                let actualTop = 0;
+                                let currentEl = jellyfishEl;
+                                while (currentEl) {
+                                    actualTop += currentEl.offsetTop;
+                                    currentEl = currentEl.offsetParent;
+                                }
 
-                                // 🌟 把範圍縮小，精準對齊在左上角的水母身上
-                                // 記分板的 top 往上推 24px，left 往左推 12px，並把長寬縮小成 56x56 的專屬方框
+                                // 讓高光綠框完美包覆水母本體（微調寬高比原本更精準）
                                 setActiveSpotlight({
-                                    top: panelRect.top - 30,
-                                    left: panelRect.left - 12,
-                                    width: 56,
-                                    height: 70,
+                                    top: actualTop - 4,
+                                    left: jellyRect.left - 4,
+                                    width: jellyRect.width + 8,
+                                    height: jellyRect.height + 8,
                                     target: nextStep.target
                                 });
                             }
                         }, 350);
-
-                        // 🌟 處理第六步「抽籤按鈕」：專屬置中邏輯
                     } else if (nextStep.target === 'draw-btn') {
                         const rect = el.getBoundingClientRect();
                         const absoluteTop = rect.top + window.pageYOffset;
-                        const targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+
+                        // 🚀 修改：計算捲動位置，讓按鈕的底部剛好貼在視窗底部往上 10px 的地方
+                        const targetScrollTop = absoluteTop - window.innerHeight + rect.height + 10;
+
                         const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
                         window.scrollTo({ top: Math.min(maxScroll, Math.max(0, targetScrollTop)), behavior: 'smooth' });
 
                         setTimeout(() => {
                             const finalRect = el.getBoundingClientRect();
+                            const absoluteElementTop = finalRect.top + window.pageYOffset;
                             setActiveSpotlight({
-                                top: finalRect.top, left: finalRect.left,
-                                width: finalRect.width, height: finalRect.height,
+                                top: absoluteElementTop,
+                                left: finalRect.left,
+                                width: finalRect.width,
+                                height: finalRect.height,
                                 target: nextStep.target
                             });
                         }, 300);
@@ -1276,7 +1380,16 @@
                         // 計算原始坐標並平滑置中捲動
                         const rect = el.getBoundingClientRect();
                         const absoluteTop = rect.top + window.pageYOffset;
-                        const targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+
+                        // 🌟 新增：返回時若遇到步驟 3、4、5，也強制讓捲動目標歸零（回到頂端）
+                        const topTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
+                        let targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+                        if (topTargets.includes(nextStep.target)) {
+                            targetScrollTop = 0;
+                        } else if (nextStep.target === 'core-task') {
+                            targetScrollTop = Math.max(0, absoluteTop - 72);
+                        }
+
                         const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
 
                         window.scrollTo({
@@ -1287,9 +1400,10 @@
                         // 延遲確保滑動結束才抓最終坐標
                         setTimeout(() => {
                             const finalRect = el.getBoundingClientRect();
-
                             let adjustedTop = finalRect.top;
                             let adjustedHeight = finalRect.height;
+                            let adjustedLeft = finalRect.left;
+                            let adjustedWidth = finalRect.width;
 
                             // 第三步的綠框高度對齊微調
                             if (nextStep.target === 'nav-collection') {
@@ -1297,10 +1411,31 @@
                                 adjustedHeight = finalRect.height - 4;
                             }
 
+                            // 🚀 核心修正：強行修正第 7 步的目標元素。直接綁定精準的 DOM 節點與 HTML 絕對頂部高度
+                            if (nextStep.target === 'core-task') {
+                                const realCoreTaskEl = document.getElementById('tour-core-task');
+                                if (realCoreTaskEl) {
+                                    const coreRect = realCoreTaskEl.getBoundingClientRect();
+
+                                    // 沿著父級節點一路往上累加 offsetTop，取得它相對於整個網頁最頂端的物理座標
+                                    let actualTop = 0;
+                                    let currentEl = realCoreTaskEl;
+                                    while (currentEl) {
+                                        actualTop += currentEl.offsetTop;
+                                        currentEl = currentEl.offsetParent;
+                                    }
+
+                                    adjustedTop = actualTop;
+                                    adjustedHeight = realCoreTaskEl.offsetHeight;
+                                    adjustedLeft = coreRect.left;
+                                    adjustedWidth = coreRect.width;
+                                }
+                            }
+
                             setActiveSpotlight({
                                 top: adjustedTop,
-                                left: finalRect.left,
-                                width: finalRect.width,
+                                left: adjustedLeft,
+                                width: adjustedWidth,
                                 height: adjustedHeight,
                                 target: nextStep.target
                             });
@@ -2419,6 +2554,244 @@
             if (loadedUserId !== userId) return <div className="p-10 text-center text-slate-400 font-bold">載入中...</div>;
 
             return (
+                <>
+
+                {/* ====== 操作說明 Modal ====== */}
+                    {showInstructionModal && (
+                        <div className="absolute w-full h-full inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-6 animate-fade-in" onClick={() => setShowInstructionModal(false)}>
+                            <div className="bg-white w-full max-w-[300px] h-[80vh] max-h-[580px] rounded-[32px] p-5 shadow-2xl animate-scale-in absolute top-10 border border-blue-100 flex flex-col" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setShowInstructionModal(false)} className="absolute top-3 right-3 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-bold hover:bg-slate-200 transition-colors z-10">&times;</button>
+                                <div className="text-center mb-4 shrink-0 pt-2">
+                                    <h3 className="text-[16px] font-black text-blue-900 font-serif-tc tracking-widest flex items-center justify-center gap-2">
+                                        📜 操作說明
+                                    </h3>
+                                    <button
+                                        onClick={() => {
+                                            setShowInstructionModal(false); // 1. 先優雅地關閉操作說明視窗
+                                            setTimeout(() => {
+                                                startTour(true); // 🌟 核心修正：傳入 true 告訴系統這是手動開啟的！
+                                            }, 300);
+                                        }}
+                                        className="text-[11px] text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 shadow-sm hover:shadow-md font-black mt-2 px-4 py-1.5 rounded-full tracking-widest transition-all active:scale-95 mx-auto flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        開啟導覽視窗
+                                    </button>
+                                </div>
+                                <div className="overflow-y-auto hide-scrollbar flex-1 px-1 pb-1">
+                                    <ul className="space-y-2.5">
+                                        {[
+                                            { text: "上師淨塑法語：每日抽取一張法語，並依法行持淨塑行動。", icon: "https://paymiou.github.io/paymiou/August/waves.png" },
+                                            { text: "法語核心任務：完成核心任務即可解鎖法語成就。", icon: "https://paymiou.github.io/paymiou/August/bluestar.png" },
+                                            { text: "淨塑行持積分：可從參考清單選取或自行新增項目，完成並上傳，即可獲分(Pt)。", icon: "https://paymiou.github.io/paymiou/August/reef.png" },
+                                            { text: "每週實踐回報：50字心得、照片x3，每周五開放回報、周日關閉。(請在時間內完成，共 4 週)", icon: "https://paymiou.github.io/paymiou/August/contract.png" },
+                                            { text: "班幹部審核：每週回報由班幹部進行審核，審核通過後記分板會呈現「藍色燈號」！", icon: "https://paymiou.github.io/paymiou/August/energy-consumption.png" },
+                                            { text: "點讚系統：排行榜中同學回饋，可觀摩學習並點按讚回饋唷！", icon: "https://paymiou.github.io/paymiou/August/heart.png" },
+                                            { text: "獲獎條件：取前十名", icon: "https://paymiou.github.io/paymiou/August/trophy.png", isSpecial: true, subDetails: ["1. 完成 4 週回饋，且班幹部審核通過", "2. 各項積分(Pt) 加總"] }
+                                        ].map((item, i) => {
+                                            const [title, description] = item.text.split("：");
+                                            const themeColor = item.isSpecial ? "text-amber-600" : "text-blue-600";
+                                            const bgColor = item.isSpecial ? "bg-amber-50/50 border-amber-100" : "bg-slate-50 border-slate-100";
+                                            return (
+                                                <li key={i} className={`flex gap-3 text-[11.5px] font-medium text-slate-600 items-start leading-snug px-3 py-2.5 rounded-xl border shadow-sm ${bgColor}`}>
+                                                    <img src={item.icon} alt={title} className="w-[20px] h-[20px] object-contain mt-0.5 shrink-0" />
+                                                    <span className="flex-1">
+                                                        {item.isSpecial ? (
+                                                            <>
+                                                                <strong className={`${themeColor} font-extrabold`}>{title}</strong>
+                                                                <span className="text-slate-400 font-normal mx-0.5">：</span>
+                                                                <span className="text-slate-700">
+                                                                    {description}
+                                                                    {item.subDetails && (
+                                                                        <div className="mt-2 space-y-1 border-t border-amber-200/40 pt-2 text-amber-800">
+                                                                            {item.subDetails.map((sub, si) => (
+                                                                                <p key={si} className="text-[11px] font-bold leading-tight">{sub}</p>
+                                                                            ))}
+                                                                        </div>
+                                                                    )}
+                                                                </span>
+                                                            </>
+                                                        ) : (
+                                                            <div className="flex flex-col">
+                                                                <strong className={`${themeColor} font-extrabold mb-1`}>{title}</strong>
+                                                                <span className="text-slate-700">
+                                                                    {description.includes("(請在時間內完成，共 4 週)") ? (
+                                                                        <>
+                                                                            {description.replace("(請在時間內完成，共 4 週)", "")}
+                                                                            <span className="text-slate-400 text-[11px] font-normal block mt-1 leading-tight">(請在時間內完成，共 4 週)</span>
+                                                                        </>
+                                                                    ) : description}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </span>
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ====== 💡 智慧高光聚焦與智慧滾動貼合引導系統 ====== */}
+                    {tourIndex >= 0 && (
+                        <div
+                            className="absolute inset-0 z-[99999] overflow-hidden pointer-events-none animate-fade-in touch-none"
+                            onWheel={(e) => e.stopPropagation()}
+                            onTouchMove={(e) => {
+                                if (activeSpotlight && activeSpotlight.target === 'draw-btn') return;
+                                e.preventDefault();
+                            }}
+                        >
+
+                            {/* 1. 物理裁切防護罩：在滿版黑布中精準挖洞 */}
+                            {activeSpotlight ? (
+                                <div
+                                    className={`absolute inset-0 bg-slate-950/50 transition-all duration-300 ${activeSpotlight.target === 'draw-btn' ? 'pointer-events-none' : 'pointer-events-auto'}`}
+                                    style={{
+                                        /* 🌟 終極重構：如果啟用雙框模式，clipPath 同時精準在黑布上挖出兩個獨立的洞 */
+                                        clipPath: activeSpotlight.isDual ? `polygon(
+                        0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+                        ${activeSpotlight.box1.left - 4}px ${activeSpotlight.box1.top - 4}px,
+                        ${activeSpotlight.box1.left - 4}px ${activeSpotlight.box1.top + activeSpotlight.box1.height + 4}px,
+                        ${activeSpotlight.box1.left + activeSpotlight.box1.width + 4}px ${activeSpotlight.box1.top + activeSpotlight.box1.height + 4}px,
+                        ${activeSpotlight.box1.left + activeSpotlight.box1.width + 4}px ${activeSpotlight.box1.top - 4}px,
+                        ${activeSpotlight.box1.left - 4}px ${activeSpotlight.box1.top - 4}px,
+                        0% 0%,
+                        ${activeSpotlight.box2.left - 4}px ${activeSpotlight.box2.top - 4}px,
+                        ${activeSpotlight.box2.left - 4}px ${activeSpotlight.box2.top + activeSpotlight.box2.height + 4}px,
+                        ${activeSpotlight.box2.left + activeSpotlight.box2.width + 4}px ${activeSpotlight.box2.top + activeSpotlight.box2.height + 4}px,
+                        ${activeSpotlight.box2.left + activeSpotlight.box2.width + 4}px ${activeSpotlight.box2.top - 4}px,
+                        ${activeSpotlight.box2.left - 4}px ${activeSpotlight.box2.top - 4}px
+                    )` : `polygon(
+                        0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
+                        ${activeSpotlight.left - 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px,
+                        ${activeSpotlight.left - 4}px ${activeSpotlight.top + activeSpotlight.height + 4}px,
+                        ${activeSpotlight.left + activeSpotlight.width + 4}px ${activeSpotlight.top + activeSpotlight.height + 4}px,
+                        ${activeSpotlight.left + activeSpotlight.width + 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px,
+                        ${activeSpotlight.left - 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px
+                    )`
+                                    }}
+                                    onTouchMove={(e) => {
+                                        if (activeSpotlight.target === 'draw-btn') return;
+                                        e.preventDefault();
+                                    }}
+                                />
+                            ) : (
+                                <div className="absolute inset-0 bg-slate-950/50 pointer-events-auto" onTouchMove={(e) => e.preventDefault()} />
+                            )}
+
+                            {/* 2. 綠色邊框輔助層 */}
+                            {activeSpotlight && (
+                                activeSpotlight.isDual ? (
+                                    /* 🌟 終極重構：雙框模式下，同時渲染兩套獨立的亮綠色聚焦邊框 */
+                                    <>
+                                        <div className="absolute rounded-2xl border-4 border-emerald-400 bg-transparent z-[100000] pointer-events-none transition-all duration-300"
+                                            style={{ top: `${activeSpotlight.box1.top - 4}px`, left: `${activeSpotlight.box1.left - 4}px`, width: `${activeSpotlight.box1.width + 8}px`, height: `${activeSpotlight.box1.height + 8}px` }} />
+                                        <div className="absolute rounded-2xl border-4 border-emerald-400 bg-transparent z-[100000] pointer-events-none transition-all duration-300"
+                                            style={{ top: `${activeSpotlight.box2.top - 4}px`, left: `${activeSpotlight.box2.left - 4}px`, width: `${activeSpotlight.box2.width + 8}px`, height: `${activeSpotlight.box2.height + 8}px` }} />
+                                    </>
+                                ) : (
+                                    <div className="absolute rounded-2xl border-4 border-emerald-400 bg-transparent z-[100000] pointer-events-none transition-all duration-300"
+                                        style={{
+                                            top: `${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px`,
+                                            left: `${activeSpotlight.left - 4}px`,
+                                            width: `${activeSpotlight.width + 8}px`,
+                                            height: `${activeSpotlight.target === 'nav-collection' ? activeSpotlight.height + 6 : activeSpotlight.height + 8}px`
+                                        }}
+                                    />
+                                )
+                            )}
+
+                            {/* 3. 動態定位引導提示卡片 */}
+                            <div
+                                className="absolute left-1/2 z-[100001] w-[calc(100%-32px)] max-w-[320px] transition-all duration-300 pointer-events-auto"
+                                style={(() => {
+                                    if (!activeSpotlight) return { top: '50vh', transform: 'translate(-50%, -50%)' };
+
+                                    // 1. 第八步 (原本第七步的 task-area)：雙高光維持在兩個框的正中央
+                                    if (activeSpotlight.isDual) {
+                                        const b1 = activeSpotlight.box1;
+                                        const b2 = activeSpotlight.box2;
+                                        const midY = (b1.top + b1.height + b2.top) / 2;
+                                        return { top: `${midY}px`, transform: 'translate(-50%, -50%)' };
+                                    }
+
+                                    // 2. 第三、四、五步 (三個上方頁籤)：統一設定在「綠框的上方」
+                                    const aboveTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
+                                    if (aboveTargets.includes(activeSpotlight.target)) {
+                                        // let calculatedTop = activeSpotlight.top - 230;
+                                        let calculatedTop = 0;
+                                        if (calculatedTop < 10) calculatedTop = 10;
+                                        return { top: `${calculatedTop}px`, transform: 'translateX(-50%)' };
+                                    }
+
+                                    // 3. 第六步 (抽卡按鈕)：精準在按鈕上方 16px 的位置
+                                    if (activeSpotlight.target === 'draw-btn') {
+                                        // 🚀 修改：卡片高度為自身高度，所以需要拿按鈕頂部（activeSpotlight.top）再往上扣掉說明框預估高度與 16px 的間距
+                                        // 這裡我們直接用 transform: translateY(-100%) 來向上推，這樣完全不用通靈計算說明框到底有多高！
+                                        let calculatedTop = activeSpotlight.top - 16;
+                                        if (calculatedTop < 10) calculatedTop = 10;
+                                        return {
+                                            top: `${calculatedTop}px`,
+                                            transform: 'translate(-50%, -100%)' // 🚀 完美在按鈕上方 16px
+                                        };
+                                    }
+
+                                    // 🌟 4. 第七步(核心任務)、第九步(水母) 與其他預設目標：乖乖待在綠框的「正下方」
+                                    // 🚀 修改：將第 7 步說明框強制設定在高光絕對位置底部下方的 16px
+                                    if (activeSpotlight.target === 'core-task') {
+                                        return { top: `${activeSpotlight.top + activeSpotlight.height + 16}px`, transform: 'translateX(-50%)' };
+                                    }
+
+                                    return { top: `${activeSpotlight.top + activeSpotlight.height + 14}px`, transform: 'translateX(-50%)' };
+                                })()}
+                                onTouchMove={(e) => e.stopPropagation()}
+                            >
+
+                                <div className="bg-white text-slate-800 rounded-[28px] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-slate-100 text-left">
+                                    <div className="flex justify-between items-center mb-2.5">
+                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-black tracking-wider">
+                                            步驟說明 ({tourIndex + 1} / {TOUR_STEPS.length})
+                                        </span>
+                                        <button onClick={() => { setTourIndex(-1); setActiveSpotlight(null); }} className="text-slate-400 font-bold text-lg hover:text-slate-600">&times;</button>
+                                    </div>
+
+                                    <h4 className="text-[15px] font-black text-slate-900 font-serif-tc tracking-wide mb-1.5 flex items-center gap-1.5">
+                                        {TOUR_STEPS[tourIndex].title}
+                                    </h4>
+                                    <div className="text-[12px] text-slate-500 font-bold leading-relaxed mb-4 text-justify">
+                                        {TOUR_STEPS[tourIndex].content}
+                                    </div>
+
+                                    <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100">
+                                        {/* 🌟 核心修正：加入 tourIndex !== 6 的判斷，讓第七步徹底隱藏回上一步按鈕 */}
+                                        {tourIndex > 0 && tourIndex !== 6 ? (
+                                            <button
+                                                onClick={handleTourPrev}
+                                                className="text-[12px] text-slate-400 hover:text-blue-900 font-black tracking-widest transition-colors"
+                                            >
+                                                ⬅ 回上一步
+                                            </button>
+                                        ) : (
+                                            <div className="w-10"></div>
+                                        )}
+
+                                        {!TOUR_STEPS[tourIndex].isInteractive && (
+                                            <button
+                                                onClick={handleTourNext}
+                                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-[12px] shadow-md active:scale-95 transition-all tracking-widest"
+                                            >
+                                                {tourIndex === TOUR_STEPS.length - 1 ? "我知道了 ➔" : "下一個說明 ➔"}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                
                 <div className="max-w-[360px] mx-auto bg-white min-h-screen shadow-xl relative flex flex-col border-x border-slate-200">
 
                     {/* ====== Alerts & Modals ====== */}
@@ -2558,232 +2931,6 @@
                                             </div>
                                         );
                                     })}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ====== 操作說明 Modal ====== */}
-                    {showInstructionModal && (
-                        <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-6 animate-fade-in" onClick={() => setShowInstructionModal(false)}>
-                            <div className="bg-white w-full max-w-[300px] h-[80vh] max-h-[580px] rounded-[32px] p-5 shadow-2xl animate-scale-in relative border border-blue-100 flex flex-col" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => setShowInstructionModal(false)} className="absolute top-3 right-3 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-bold hover:bg-slate-200 transition-colors z-10">&times;</button>
-                                <div className="text-center mb-4 shrink-0 pt-2">
-                                    <h3 className="text-[16px] font-black text-blue-900 font-serif-tc tracking-widest flex items-center justify-center gap-2">
-                                        📜 操作說明
-                                    </h3>
-                                    <button
-                                        onClick={() => {
-                                            setShowInstructionModal(false); // 1. 先優雅地關閉操作說明視窗
-                                            setTimeout(() => {
-                                                startTour(true); // 🌟 核心修正：傳入 true 告訴系統這是手動開啟的！
-                                            }, 300);
-                                        }}
-                                        className="text-[11px] text-blue-600 bg-blue-50 border border-blue-200 hover:bg-blue-100 shadow-sm hover:shadow-md font-black mt-2 px-4 py-1.5 rounded-full tracking-widest transition-all active:scale-95 mx-auto flex items-center justify-center gap-1.5 cursor-pointer"
-                                    >
-                                        開啟導覽視窗
-                                    </button>
-                                </div>
-                                <div className="overflow-y-auto hide-scrollbar flex-1 px-1 pb-1">
-                                    <ul className="space-y-2.5">
-                                        {[
-                                            { text: "上師淨塑法語：每日抽取一張法語，並依法行持淨塑行動。", icon: "https://paymiou.github.io/paymiou/August/waves.png" },
-                                            { text: "法語核心任務：完成核心任務即可解鎖法語成就。", icon: "https://paymiou.github.io/paymiou/August/bluestar.png" },
-                                            { text: "淨塑行持積分：可從參考清單選取或自行新增項目，完成並上傳，即可獲分(Pt)。", icon: "https://paymiou.github.io/paymiou/August/reef.png" },
-                                            { text: "每週實踐回報：50字心得、照片x3，每周五開放回報、周日關閉。(請在時間內完成，共 4 週)", icon: "https://paymiou.github.io/paymiou/August/contract.png" },
-                                            { text: "班幹部審核：每週回報由班幹部進行審核，審核通過後記分板會呈現「藍色燈號」！", icon: "https://paymiou.github.io/paymiou/August/energy-consumption.png" },
-                                            { text: "點讚系統：排行榜中同學回饋，可觀摩學習並點按讚回饋唷！", icon: "https://paymiou.github.io/paymiou/August/heart.png" },
-                                            { text: "獲獎條件：取前十名", icon: "https://paymiou.github.io/paymiou/August/trophy.png", isSpecial: true, subDetails: ["1. 完成 4 週回饋，且班幹部審核通過", "2. 各項積分(Pt) 加總"] }
-                                        ].map((item, i) => {
-                                            const [title, description] = item.text.split("：");
-                                            const themeColor = item.isSpecial ? "text-amber-600" : "text-blue-600";
-                                            const bgColor = item.isSpecial ? "bg-amber-50/50 border-amber-100" : "bg-slate-50 border-slate-100";
-                                            return (
-                                                <li key={i} className={`flex gap-3 text-[11.5px] font-medium text-slate-600 items-start leading-snug px-3 py-2.5 rounded-xl border shadow-sm ${bgColor}`}>
-                                                    <img src={item.icon} alt={title} className="w-[20px] h-[20px] object-contain mt-0.5 shrink-0" />
-                                                    <span className="flex-1">
-                                                        {item.isSpecial ? (
-                                                            <>
-                                                                <strong className={`${themeColor} font-extrabold`}>{title}</strong>
-                                                                <span className="text-slate-400 font-normal mx-0.5">：</span>
-                                                                <span className="text-slate-700">
-                                                                    {description}
-                                                                    {item.subDetails && (
-                                                                        <div className="mt-2 space-y-1 border-t border-amber-200/40 pt-2 text-amber-800">
-                                                                            {item.subDetails.map((sub, si) => (
-                                                                                <p key={si} className="text-[11px] font-bold leading-tight">{sub}</p>
-                                                                            ))}
-                                                                        </div>
-                                                                    )}
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <div className="flex flex-col">
-                                                                <strong className={`${themeColor} font-extrabold mb-1`}>{title}</strong>
-                                                                <span className="text-slate-700">
-                                                                    {description.includes("(請在時間內完成，共 4 週)") ? (
-                                                                        <>
-                                                                            {description.replace("(請在時間內完成，共 4 週)", "")}
-                                                                            <span className="text-slate-400 text-[11px] font-normal block mt-1 leading-tight">(請在時間內完成，共 4 週)</span>
-                                                                        </>
-                                                                    ) : description}
-                                                                </span>
-                                                            </div>
-                                                        )}
-                                                    </span>
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ====== 💡 智慧高光聚焦與智慧滾動貼合引導系統 (Fixed 完美對齊滿版) ====== */}
-                    {tourIndex >= 0 && (
-                        <div
-                            className="fixed inset-0 z-[99999] overflow-hidden pointer-events-none animate-fade-in touch-none"
-                            onWheel={(e) => e.stopPropagation()}
-                            onTouchMove={(e) => {
-                                if (activeSpotlight && activeSpotlight.target === 'draw-btn') return;
-                                e.preventDefault();
-                            }}
-                        >
-
-                            {/* 1. 物理裁切防護罩：在滿版黑布中精準挖洞 */}
-                            {activeSpotlight ? (
-                                <div
-                                    className={`absolute inset-0 bg-slate-950/50 transition-all duration-300 ${activeSpotlight.target === 'draw-btn' ? 'pointer-events-none' : 'pointer-events-auto'}`}
-                                    style={{
-                                        /* 🌟 終極重構：如果啟用雙框模式，clipPath 同時精準在黑布上挖出兩個獨立的洞 */
-                                        clipPath: activeSpotlight.isDual ? `polygon(
-                        0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
-                        ${activeSpotlight.box1.left - 4}px ${activeSpotlight.box1.top - 4}px,
-                        ${activeSpotlight.box1.left - 4}px ${activeSpotlight.box1.top + activeSpotlight.box1.height + 4}px,
-                        ${activeSpotlight.box1.left + activeSpotlight.box1.width + 4}px ${activeSpotlight.box1.top + activeSpotlight.box1.height + 4}px,
-                        ${activeSpotlight.box1.left + activeSpotlight.box1.width + 4}px ${activeSpotlight.box1.top - 4}px,
-                        ${activeSpotlight.box1.left - 4}px ${activeSpotlight.box1.top - 4}px,
-                        0% 0%,
-                        ${activeSpotlight.box2.left - 4}px ${activeSpotlight.box2.top - 4}px,
-                        ${activeSpotlight.box2.left - 4}px ${activeSpotlight.box2.top + activeSpotlight.box2.height + 4}px,
-                        ${activeSpotlight.box2.left + activeSpotlight.box2.width + 4}px ${activeSpotlight.box2.top + activeSpotlight.box2.height + 4}px,
-                        ${activeSpotlight.box2.left + activeSpotlight.box2.width + 4}px ${activeSpotlight.box2.top - 4}px,
-                        ${activeSpotlight.box2.left - 4}px ${activeSpotlight.box2.top - 4}px
-                    )` : `polygon(
-                        0% 0%, 100% 0%, 100% 100%, 0% 100%, 0% 0%,
-                        ${activeSpotlight.left - 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px,
-                        ${activeSpotlight.left - 4}px ${activeSpotlight.top + activeSpotlight.height + 4}px,
-                        ${activeSpotlight.left + activeSpotlight.width + 4}px ${activeSpotlight.top + activeSpotlight.height + 4}px,
-                        ${activeSpotlight.left + activeSpotlight.width + 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px,
-                        ${activeSpotlight.left - 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px
-                    )`
-                                    }}
-                                    onTouchMove={(e) => {
-                                        if (activeSpotlight.target === 'draw-btn') return;
-                                        e.preventDefault();
-                                    }}
-                                />
-                            ) : (
-                                <div className="absolute inset-0 bg-slate-950/50 pointer-events-auto" onTouchMove={(e) => e.preventDefault()} />
-                            )}
-
-                            {/* 2. 綠色邊框輔助層 */}
-                            {activeSpotlight && (
-                                activeSpotlight.isDual ? (
-                                    /* 🌟 終極重構：雙框模式下，同時渲染兩套獨立的亮綠色聚焦邊框 */
-                                    <>
-                                        <div className="fixed rounded-2xl border-4 border-emerald-400 bg-transparent z-[100000] pointer-events-none transition-all duration-300"
-                                            style={{ top: `${activeSpotlight.box1.top - 4}px`, left: `${activeSpotlight.box1.left - 4}px`, width: `${activeSpotlight.box1.width + 8}px`, height: `${activeSpotlight.box1.height + 8}px` }} />
-                                        <div className="fixed rounded-2xl border-4 border-emerald-400 bg-transparent z-[100000] pointer-events-none transition-all duration-300"
-                                            style={{ top: `${activeSpotlight.box2.top - 4}px`, left: `${activeSpotlight.box2.left - 4}px`, width: `${activeSpotlight.box2.width + 8}px`, height: `${activeSpotlight.box2.height + 8}px` }} />
-                                    </>
-                                ) : (
-                                    <div className="fixed rounded-2xl border-4 border-emerald-400 bg-transparent z-[100000] pointer-events-none transition-all duration-300"
-                                        style={{
-                                            top: `${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px`,
-                                            left: `${activeSpotlight.left - 4}px`,
-                                            width: `${activeSpotlight.width + 8}px`,
-                                            height: `${activeSpotlight.target === 'nav-collection' ? activeSpotlight.height + 6 : activeSpotlight.height + 8}px`
-                                        }}
-                                    />
-                                )
-                            )}
-
-                            {/* 3. 動態定位引導提示卡片 */}
-                            <div
-                                className="fixed left-1/2 z-[100001] w-[calc(100%-32px)] max-w-[320px] transition-all duration-300 pointer-events-auto"
-                                style={(() => {
-                                    if (!activeSpotlight) return { top: '50%', transform: 'translate(-50%, -50%)' };
-
-                                    // 1. 第八步 (原本第七步的 task-area)：雙高光維持在兩個框的正中央
-                                    if (activeSpotlight.isDual) {
-                                        const b1 = activeSpotlight.box1;
-                                        const b2 = activeSpotlight.box2;
-                                        const midY = (b1.top + b1.height + b2.top) / 2;
-                                        return { top: `${midY}px`, transform: 'translate(-50%, -50%)' };
-                                    }
-
-                                    // 2. 第三、四、五步 (三個上方頁籤)：統一設定在「綠框的上方」
-                                    const aboveTargets = ['nav-collection', 'nav-report', 'nav-ranking'];
-                                    if (aboveTargets.includes(activeSpotlight.target)) {
-                                        let calculatedTop = activeSpotlight.top - 230;
-                                        if (calculatedTop < 10) calculatedTop = 10;
-                                        return { top: `${calculatedTop}px`, transform: 'translateX(-50%)' };
-                                    }
-
-                                    // 3. 第六步 (抽卡按鈕)：維持原本的上方安全定位
-                                    if (activeSpotlight.target === 'draw-btn') {
-                                        const vh = window.innerHeight;
-                                        let calculatedTop = activeSpotlight.top - 165;
-                                        if (calculatedTop < 10) calculatedTop = 10;
-                                        if (calculatedTop > vh - 245) calculatedTop = vh - 245;
-                                        return { top: `${calculatedTop}px`, transform: 'translateX(-50%)' };
-                                    }
-
-                                    // 🌟 4. 第七步(核心任務)、第九步(水母) 與其他預設目標：乖乖待在綠框的「正下方」
-                                    return { top: `${activeSpotlight.top + activeSpotlight.height + 14}px`, transform: 'translateX(-50%)' };
-                                })()}
-                                onTouchMove={(e) => e.stopPropagation()}
-                            >
-
-                                <div className="bg-white text-slate-800 rounded-[28px] p-5 shadow-[0_20px_50px_rgba(0,0,0,0.4)] border border-slate-100 text-left">
-                                    <div className="flex justify-between items-center mb-2.5">
-                                        <span className="text-[10px] bg-emerald-50 text-emerald-700 px-2.5 py-0.5 rounded-full font-black tracking-wider">
-                                            步驟說明 ({tourIndex + 1} / {TOUR_STEPS.length})
-                                        </span>
-                                        <button onClick={() => { setTourIndex(-1); setActiveSpotlight(null); }} className="text-slate-400 font-bold text-lg hover:text-slate-600">&times;</button>
-                                    </div>
-
-                                    <h4 className="text-[15px] font-black text-slate-900 font-serif-tc tracking-wide mb-1.5 flex items-center gap-1.5">
-                                        {TOUR_STEPS[tourIndex].title}
-                                    </h4>
-                                    <div className="text-[12px] text-slate-500 font-bold leading-relaxed mb-4 text-justify">
-                                        {TOUR_STEPS[tourIndex].content}
-                                    </div>
-
-                                    <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-slate-100">
-                                        {/* 🌟 核心修正：加入 tourIndex !== 6 的判斷，讓第七步徹底隱藏回上一步按鈕 */}
-                                        {tourIndex > 0 && tourIndex !== 6 ? (
-                                            <button
-                                                onClick={handleTourPrev}
-                                                className="text-[12px] text-slate-400 hover:text-blue-900 font-black tracking-widest transition-colors"
-                                            >
-                                                ⬅ 回上一步
-                                            </button>
-                                        ) : (
-                                            <div className="w-10"></div>
-                                        )}
-
-                                        {!TOUR_STEPS[tourIndex].isInteractive && (
-                                            <button
-                                                onClick={handleTourNext}
-                                                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-black text-[12px] shadow-md active:scale-95 transition-all tracking-widest"
-                                            >
-                                                {tourIndex === TOUR_STEPS.length - 1 ? "我知道了 ➔" : "下一個說明 ➔"}
-                                            </button>
-                                        )}
-                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2953,30 +3100,45 @@
                                             // 延遲 500ms 等法語卡片優雅縮回關閉後，開啟第七步「核心任務」說明
                                             setTimeout(() => {
                                                 setActiveTab('daily');
-                                                setTourIndex(6); // 🌟 指定前進到全新的第 7 步 (法語核心任務)
 
-                                                // 給分頁一點時間切換，然後執行精準捲動與打光
+                                                // 🚀 修正：給 React 300ms 的時間，先把 daily 分頁的「法語核心任務卡片」確實渲染到畫面上
                                                 setTimeout(() => {
-                                                    const el = document.getElementById('tour-core-task'); // 🌟 聚焦在核心任務項目
+                                                    setTourIndex(6); // 🌟 這時候才安全確立第 7 步的導覽狀態
 
+                                                    const el = document.getElementById('tour-core-task');
                                                     if (el) {
-                                                        // 1. 稍微往上捲動一點，讓核心任務卡片停在畫面偏上方
+                                                        // 1. 平滑捲動到預定位置
                                                         const absoluteTop = el.getBoundingClientRect().top + window.pageYOffset;
                                                         window.scrollTo({
-                                                            top: Math.max(0, absoluteTop - 65),
+                                                            top: Math.max(0, absoluteTop - 72), // 完美貼齊頁籤下方10px
                                                             behavior: 'smooth'
                                                         });
 
-                                                        // 2. 延遲 350ms 確保捲動停止後，精準抓取坐標畫單一個綠框
+                                                        // 2. 🚀 關鍵修正：將畫高光綠框的延遲從 350ms 加大到 600ms！
+                                                        // 確保手機瀏覽器「已經完全滾動靜止」後，才去抓取絕對座標，這樣抽完法語直接進第7步就 100% 絕對正確不走位！
                                                         setTimeout(() => {
-                                                            const r = el.getBoundingClientRect();
-                                                            setActiveSpotlight({
-                                                                top: r.top, left: r.left, width: r.width, height: r.height,
-                                                                target: 'core-task'
-                                                            });
-                                                        }, 350);
+                                                            const realCoreTaskEl = document.getElementById('tour-core-task');
+                                                            if (realCoreTaskEl) {
+                                                                const coreRect = realCoreTaskEl.getBoundingClientRect();
+
+                                                                let actualTop = 0;
+                                                                let currentEl = realCoreTaskEl;
+                                                                while (currentEl) {
+                                                                    actualTop += currentEl.offsetTop;
+                                                                    currentEl = currentEl.offsetParent;
+                                                                }
+
+                                                                setActiveSpotlight({
+                                                                    top: actualTop,
+                                                                    left: coreRect.left,
+                                                                    width: coreRect.width,
+                                                                    height: realCoreTaskEl.offsetHeight,
+                                                                    target: 'core-task'
+                                                                });
+                                                            }
+                                                        }, 600);
                                                     }
-                                                }, 150);
+                                                }, 300);
                                             }, 500);
                                         }
 
@@ -3189,7 +3351,6 @@
                         </div>
                     )}
 
-                    {/* ====== Main Nav (分頁功能置頂列) ====== */}
                     {/* ====== Main Nav (分頁功能置頂列) ====== */}
                     <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-100 px-4 pt-2 pb-1 bg-white/95 backdrop-blur-md sticky top-0 z-[100] shrink-0 shadow-sm">
                         {[
@@ -3650,182 +3811,182 @@
                                                 : leaderboardWithRank;
 
                                             if (displayLeaderboard.length === 0) {
-                                                    return (
-                                                        <div className="text-center text-slate-400 py-10 font-bold text-[13px] bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                                                            找不到符合「{searchQuery}」的紀錄
-                                                        </div>
-                                                    );
-                                                }
-
-                                                // 🎯 [新加入的步驟 1]：先用 slice 裁切出目前想顯示的人數（例如 10 人）
-                                                const slicedLeaderboard = displayLeaderboard.slice(0, visibleCount);
-
-                                                // 🎯 [新加入的步驟 2]：外面多包一層 <div>，把裁切後的清單與按鈕裝在一起
                                                 return (
-                                                    <div className="space-y-2.5">
-
-                                                        {/* 🎯 改用我們在 useMemo 算好的 displayRank 來呈現名次與判斷 Top 3 流光 */}
-                                                        {slicedLeaderboard.map((player) => {
-                                                            const pRank = getRankInfo(player.baseScore);
-
-                                                            // 🏆 真正統一成果頁：Top 3 改用「名次數字」來認，而不是看陣列順序！
-                                                            // 這樣如果名次是並列第一，兩個人都會發出金黃色流光！
-                                                            const isTop3 = player.displayRank <= 3;
-
-                                                            let rankStyles = "";
-                                                            let textPrimary = "text-slate-800";
-                                                            let textSecondary = "text-slate-400";
-                                                            let scoreColor = "text-slate-800";
-
-                                                            if (player.displayRank === 1) {
-                                                                rankStyles = "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 shadow-amber-200 shadow-lg scale-[1.01] border-amber-300";
-                                                                textPrimary = "text-white"; textSecondary = "text-amber-100"; scoreColor = "text-white";
-                                                            } else if (player.displayRank === 2) {
-                                                                rankStyles = "bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 shadow-slate-200 shadow-md border-slate-200";
-                                                                textPrimary = "text-white"; textSecondary = "text-slate-100"; scoreColor = "text-white";
-                                                            } else if (player.displayRank === 3) {
-                                                                rankStyles = "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 shadow-orange-200 shadow-md border-orange-300";
-                                                                textPrimary = "text-white"; textSecondary = "text-orange-100"; scoreColor = "text-white";
-                                                            } else if (player.isSelf) {
-                                                                rankStyles = "bg-blue-900 border-blue-900 shadow-blue-200 shadow-lg ring-4 ring-blue-100";
-                                                                textPrimary = "text-white"; textSecondary = "text-blue-200"; scoreColor = "text-white";
-                                                            } else {
-                                                                rankStyles = "bg-white border-slate-100 shadow-sm";
-                                                            }
-
-                                                            const isExpanded = expandedPlayerId === player.id;
-                                                            const playerLikes = player.isSelf ? receivedLikesScore : Object.values(player.reports || {}).reduce((sum, r) => sum + (r.likes || 0), 0);
-                                                            const submittedReports = Object.keys(player.reports || {})
-                                                                .filter(weekId => player.reports[weekId].submitted)
-                                                                .map(weekId => ({ weekId, ...player.reports[weekId] }));
-
-                                                            return (
-                                                                <div key={player.id} id={player.isSelf ? "leaderboard-self" : undefined} className="transition-all duration-300 text-left">
-                                                                    <div
-                                                                        onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
-                                                                        className={`flex items-center gap-3 py-2.5 px-4 rounded-xl border transition-all relative overflow-hidden cursor-pointer ${rankStyles} ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
-                                                                    >
-                                                                        <div className="flex flex-col items-center justify-center w-8 relative">
-                                                                            {/* 🎯 這裡正式將 index + 1 改為 player.displayRank */}
-                                                                            <span className={`text-xs font-black italic ${isTop3 ? 'text-white text-base' : player.isSelf ? 'text-white' : 'text-slate-300'}`}>{player.displayRank}</span>
-                                                                        </div>
-                                                                        <div className="flex-1 text-left">
-                                                                            <div className="flex items-center gap-1.5">
-                                                                                <span className={`text-[13px] font-black tracking-wide ${textPrimary}`}>
-                                                                                    {player.className ? `${player.className} ` : ""}{player.name}
-                                                                                </span>
-                                                                                {player.isSelf && <span className={`${isTop3 ? 'bg-white/20' : 'bg-white'} ${isTop3 ? 'text-white' : 'text-blue-900'} text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter`}>ME</span>}
-                                                                            </div>
-                                                                            <p className={`text-[9px] font-bold ${textSecondary}`}>{pRank.title}</p>
-                                                                        </div>
-                                                                        <div className="text-right flex flex-col items-end justify-center">
-                                                                            <div className="flex items-center justify-end gap-1 mb-0.5">
-                                                                                <span className={`text-[15px] font-black italic tracking-tighter ${scoreColor}`}>{player.baseScore}</span>
-                                                                                <span className={`text-[7px] font-black uppercase tracking-tighter opacity-60 ${scoreColor}`}>PT</span>
-                                                                            </div>
-                                                                            <div className={`flex items-center justify-end gap-1.5 text-[8px] font-black ${isTop3 || player.isSelf ? 'text-white/90' : 'text-slate-400'}`}>
-                                                                                <span className="flex items-center gap-0.5"><Icons.Sparkles /> {player.achievements}</span>
-                                                                                <span className="flex items-center gap-0.5"><span className="text-[7px] opacity-80">❤️</span> {playerLikes}</span>
-                                                                            </div>
-                                                                            <div className={`mt-0.5 text-[8px] transition-transform ${isExpanded ? 'rotate-180' : ''} ${isTop3 || player.isSelf ? 'text-white/60' : 'text-slate-300'}`}>
-                                                                                ▼
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {isExpanded && (
-                                                                        <div className="p-3.5 bg-slate-50 border border-t-0 border-slate-200 rounded-b-xl shadow-inner animate-fade-in text-left">
-                                                                            {submittedReports.length === 0 ? (
-                                                                                <p className="text-center text-xs text-slate-400 font-bold py-4">這位玩家尚無公開的回饋紀錄</p>
-                                                                            ) : (
-                                                                                <div className="space-y-4">
-                                                                                    {submittedReports.map(report => {
-                                                                                        const weekConfig = WEEKLY_CONFIG.find(w => w.id === report.weekId);
-                                                                                        const likeKey = `${player.id}_${report.weekId}`;
-                                                                                        const hasLiked = myGivenLikes.includes(likeKey);
-                                                                                        const isMe = player.isSelf;
-
-                                                                                        return (
-                                                                                            <div key={report.weekId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-left">
-                                                                                                <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-50">
-                                                                                                    <div className="flex items-center gap-2">
-                                                                                                        <span className="text-xs font-black text-[#173E98]">{weekConfig?.title}心得</span>
-                                                                                                        <img
-                                                                                                            src={(report.approved === true || String(report.approved).trim().toUpperCase() === 'V') ? "https://paymiou.github.io/paymiou/August/approval.png" : "https://paymiou.github.io/paymiou/August/Under%20review.png"}
-                                                                                                            className="h-[18px] object-contain drop-shadow-sm cursor-pointer hover:scale-110 transition-transform active:scale-95"
-                                                                                                            alt="status"
-                                                                                                            title="點擊查看狀態"
-                                                                                                            onClick={(e) => {
-                                                                                                                e.stopPropagation();
-                                                                                                                const isApproved = (report.approved === true || String(report.approved).trim().toUpperCase() === 'V');
-                                                                                                                showToast(isApproved ? '班幹部審核通過' : '班幹部審核中', isApproved ? 'approved' : 'pending');
-                                                                                                            }}
-                                                                                                        />
-                                                                                                    </div>
-                                                                                                    <button
-                                                                                                        onClick={(e) => handleLikeClick(player.id, report.weekId, e)}
-                                                                                                        disabled={isMe || hasLiked}
-                                                                                                        className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black transition-all ${isMe ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
-                                                                                                            hasLiked ? 'bg-pink-50 text-pink-500 border border-pink-200' : 'bg-slate-100 text-slate-500 hover:bg-pink-50 hover:text-pink-500 active:scale-90'
-                                                                                                            }`}
-                                                                                                    >
-                                                                                                        <span className={hasLiked ? 'text-pink-500' : 'text-slate-400'}>{hasLiked ? '❤️' : '🤍'}</span>
-                                                                                                        <span>{report.likes || 0}</span>
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                                <p className="text-[12px] text-slate-700 font-bold leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere text-justify mb-3">
-                                                                                                    {report.content}
-                                                                                                </p>
-                                                                                                <div className="grid grid-cols-3 gap-2">
-                                                                                                    {report.photos.map((photo, i) => {
-                                                                                                        const isValidPhoto = photo && photo !== 'uploaded_photo_url';
-                                                                                                        return (
-                                                                                                            <div
-                                                                                                                key={i}
-                                                                                                                className={`aspect-square bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden ${isValidPhoto ? 'cursor-pointer hover:opacity-85' : ''}`}
-                                                                                                                onClick={() => {
-                                                                                                                    if (isValidPhoto) {
-                                                                                                                        const rawValidPhotos = report.photos.filter(p => p && p !== 'uploaded_photo_url');
-                                                                                                                        const validPhotos = rawValidPhotos.map(getDirectImageUrl);
-                                                                                                                        setLightbox({ isOpen: true, photos: validPhotos, currentIndex: rawValidPhotos.indexOf(photo) });
-                                                                                                                    }
-                                                                                                                }}
-                                                                                                            >
-                                                                                                                {isValidPhoto ? (
-                                                                                                                    <img src={getDirectImageUrl(photo)} className="w-full h-full object-cover" alt="photo" />
-                                                                                                                ) : (
-                                                                                                                    <img src="https://paymiou.github.io/paymiou/August/reef.png" className="w-6 h-6 opacity-30 grayscale" alt="placeholder" />
-                                                                                                                )}
-                                                                                                            </div>
-                                                                                                        );
-                                                                                                    })}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    })}
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-
-                                                        {/* 🎯 [全新修改]：拔除傳統點擊按鈕，改為 IG 式滑動底部提示線 */}
-                                                        {displayLeaderboard.length > visibleCount ? (
-                                                            <div className="py-6 text-center text-slate-400 font-bold text-[11px] tracking-widest animate-pulse flex items-center justify-center gap-2">
-                                                                <div className="w-3 border-t border-slate-200"></div>
-                                                                <span>⏳ 往下捲動自動加載挑戰者 (還有 {displayLeaderboard.length - visibleCount} 筆)</span>
-                                                                <div className="w-3 border-t border-slate-200"></div>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="py-6 text-center text-slate-300 font-bold text-[10px] tracking-[0.2em] uppercase">
-                                                                ✨ 已載入全數挑戰者名單 ✨
-                                                            </div>
-                                                        )}
-
+                                                    <div className="text-center text-slate-400 py-10 font-bold text-[13px] bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                                                        找不到符合「{searchQuery}」的紀錄
                                                     </div>
                                                 );
+                                            }
+
+                                            // 🎯 [新加入的步驟 1]：先用 slice 裁切出目前想顯示的人數（例如 10 人）
+                                            const slicedLeaderboard = displayLeaderboard.slice(0, visibleCount);
+
+                                            // 🎯 [新加入的步驟 2]：外面多包一層 <div>，把裁切後的清單與按鈕裝在一起
+                                            return (
+                                                <div className="space-y-2.5">
+
+                                                    {/* 🎯 改用我們在 useMemo 算好的 displayRank 來呈現名次與判斷 Top 3 流光 */}
+                                                    {slicedLeaderboard.map((player) => {
+                                                        const pRank = getRankInfo(player.baseScore);
+
+                                                        // 🏆 真正統一成果頁：Top 3 改用「名次數字」來認，而不是看陣列順序！
+                                                        // 這樣如果名次是並列第一，兩個人都會發出金黃色流光！
+                                                        const isTop3 = player.displayRank <= 3;
+
+                                                        let rankStyles = "";
+                                                        let textPrimary = "text-slate-800";
+                                                        let textSecondary = "text-slate-400";
+                                                        let scoreColor = "text-slate-800";
+
+                                                        if (player.displayRank === 1) {
+                                                            rankStyles = "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 shadow-amber-200 shadow-lg scale-[1.01] border-amber-300";
+                                                            textPrimary = "text-white"; textSecondary = "text-amber-100"; scoreColor = "text-white";
+                                                        } else if (player.displayRank === 2) {
+                                                            rankStyles = "bg-gradient-to-r from-slate-300 via-slate-400 to-slate-500 shadow-slate-200 shadow-md border-slate-200";
+                                                            textPrimary = "text-white"; textSecondary = "text-slate-100"; scoreColor = "text-white";
+                                                        } else if (player.displayRank === 3) {
+                                                            rankStyles = "bg-gradient-to-r from-orange-400 via-orange-500 to-orange-600 shadow-orange-200 shadow-md border-orange-300";
+                                                            textPrimary = "text-white"; textSecondary = "text-orange-100"; scoreColor = "text-white";
+                                                        } else if (player.isSelf) {
+                                                            rankStyles = "bg-blue-900 border-blue-900 shadow-blue-200 shadow-lg ring-4 ring-blue-100";
+                                                            textPrimary = "text-white"; textSecondary = "text-blue-200"; scoreColor = "text-white";
+                                                        } else {
+                                                            rankStyles = "bg-white border-slate-100 shadow-sm";
+                                                        }
+
+                                                        const isExpanded = expandedPlayerId === player.id;
+                                                        const playerLikes = player.isSelf ? receivedLikesScore : Object.values(player.reports || {}).reduce((sum, r) => sum + (r.likes || 0), 0);
+                                                        const submittedReports = Object.keys(player.reports || {})
+                                                            .filter(weekId => player.reports[weekId].submitted)
+                                                            .map(weekId => ({ weekId, ...player.reports[weekId] }));
+
+                                                        return (
+                                                            <div key={player.id} id={player.isSelf ? "leaderboard-self" : undefined} className="transition-all duration-300 text-left">
+                                                                <div
+                                                                    onClick={() => setExpandedPlayerId(isExpanded ? null : player.id)}
+                                                                    className={`flex items-center gap-3 py-2.5 px-4 rounded-xl border transition-all relative overflow-hidden cursor-pointer ${rankStyles} ${isExpanded ? 'rounded-b-none border-b-0' : ''}`}
+                                                                >
+                                                                    <div className="flex flex-col items-center justify-center w-8 relative">
+                                                                        {/* 🎯 這裡正式將 index + 1 改為 player.displayRank */}
+                                                                        <span className={`text-xs font-black italic ${isTop3 ? 'text-white text-base' : player.isSelf ? 'text-white' : 'text-slate-300'}`}>{player.displayRank}</span>
+                                                                    </div>
+                                                                    <div className="flex-1 text-left">
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <span className={`text-[13px] font-black tracking-wide ${textPrimary}`}>
+                                                                                {player.className ? `${player.className} ` : ""}{player.name}
+                                                                            </span>
+                                                                            {player.isSelf && <span className={`${isTop3 ? 'bg-white/20' : 'bg-white'} ${isTop3 ? 'text-white' : 'text-blue-900'} text-[8px] px-1.5 py-0.5 rounded font-black uppercase tracking-tighter`}>ME</span>}
+                                                                        </div>
+                                                                        <p className={`text-[9px] font-bold ${textSecondary}`}>{pRank.title}</p>
+                                                                    </div>
+                                                                    <div className="text-right flex flex-col items-end justify-center">
+                                                                        <div className="flex items-center justify-end gap-1 mb-0.5">
+                                                                            <span className={`text-[15px] font-black italic tracking-tighter ${scoreColor}`}>{player.baseScore}</span>
+                                                                            <span className={`text-[7px] font-black uppercase tracking-tighter opacity-60 ${scoreColor}`}>PT</span>
+                                                                        </div>
+                                                                        <div className={`flex items-center justify-end gap-1.5 text-[8px] font-black ${isTop3 || player.isSelf ? 'text-white/90' : 'text-slate-400'}`}>
+                                                                            <span className="flex items-center gap-0.5"><Icons.Sparkles /> {player.achievements}</span>
+                                                                            <span className="flex items-center gap-0.5"><span className="text-[7px] opacity-80">❤️</span> {playerLikes}</span>
+                                                                        </div>
+                                                                        <div className={`mt-0.5 text-[8px] transition-transform ${isExpanded ? 'rotate-180' : ''} ${isTop3 || player.isSelf ? 'text-white/60' : 'text-slate-300'}`}>
+                                                                            ▼
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {isExpanded && (
+                                                                    <div className="p-3.5 bg-slate-50 border border-t-0 border-slate-200 rounded-b-xl shadow-inner animate-fade-in text-left">
+                                                                        {submittedReports.length === 0 ? (
+                                                                            <p className="text-center text-xs text-slate-400 font-bold py-4">這位玩家尚無公開的回饋紀錄</p>
+                                                                        ) : (
+                                                                            <div className="space-y-4">
+                                                                                {submittedReports.map(report => {
+                                                                                    const weekConfig = WEEKLY_CONFIG.find(w => w.id === report.weekId);
+                                                                                    const likeKey = `${player.id}_${report.weekId}`;
+                                                                                    const hasLiked = myGivenLikes.includes(likeKey);
+                                                                                    const isMe = player.isSelf;
+
+                                                                                    return (
+                                                                                        <div key={report.weekId} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm text-left">
+                                                                                            <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-50">
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <span className="text-xs font-black text-[#173E98]">{weekConfig?.title}心得</span>
+                                                                                                    <img
+                                                                                                        src={(report.approved === true || String(report.approved).trim().toUpperCase() === 'V') ? "https://paymiou.github.io/paymiou/August/approval.png" : "https://paymiou.github.io/paymiou/August/Under%20review.png"}
+                                                                                                        className="h-[18px] object-contain drop-shadow-sm cursor-pointer hover:scale-110 transition-transform active:scale-95"
+                                                                                                        alt="status"
+                                                                                                        title="點擊查看狀態"
+                                                                                                        onClick={(e) => {
+                                                                                                            e.stopPropagation();
+                                                                                                            const isApproved = (report.approved === true || String(report.approved).trim().toUpperCase() === 'V');
+                                                                                                            showToast(isApproved ? '班幹部審核通過' : '班幹部審核中', isApproved ? 'approved' : 'pending');
+                                                                                                        }}
+                                                                                                    />
+                                                                                                </div>
+                                                                                                <button
+                                                                                                    onClick={(e) => handleLikeClick(player.id, report.weekId, e)}
+                                                                                                    disabled={isMe || hasLiked}
+                                                                                                    className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black transition-all ${isMe ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
+                                                                                                        hasLiked ? 'bg-pink-50 text-pink-500 border border-pink-200' : 'bg-slate-100 text-slate-500 hover:bg-pink-50 hover:text-pink-500 active:scale-90'
+                                                                                                        }`}
+                                                                                                >
+                                                                                                    <span className={hasLiked ? 'text-pink-500' : 'text-slate-400'}>{hasLiked ? '❤️' : '🤍'}</span>
+                                                                                                    <span>{report.likes || 0}</span>
+                                                                                                </button>
+                                                                                            </div>
+                                                                                            <p className="text-[12px] text-slate-700 font-bold leading-relaxed whitespace-pre-wrap break-words overflow-wrap-anywhere text-justify mb-3">
+                                                                                                {report.content}
+                                                                                            </p>
+                                                                                            <div className="grid grid-cols-3 gap-2">
+                                                                                                {report.photos.map((photo, i) => {
+                                                                                                    const isValidPhoto = photo && photo !== 'uploaded_photo_url';
+                                                                                                    return (
+                                                                                                        <div
+                                                                                                            key={i}
+                                                                                                            className={`aspect-square bg-slate-100 rounded-lg flex items-center justify-center border border-slate-200 overflow-hidden ${isValidPhoto ? 'cursor-pointer hover:opacity-85' : ''}`}
+                                                                                                            onClick={() => {
+                                                                                                                if (isValidPhoto) {
+                                                                                                                    const rawValidPhotos = report.photos.filter(p => p && p !== 'uploaded_photo_url');
+                                                                                                                    const validPhotos = rawValidPhotos.map(getDirectImageUrl);
+                                                                                                                    setLightbox({ isOpen: true, photos: validPhotos, currentIndex: rawValidPhotos.indexOf(photo) });
+                                                                                                                }
+                                                                                                            }}
+                                                                                                        >
+                                                                                                            {isValidPhoto ? (
+                                                                                                                <img src={getDirectImageUrl(photo)} className="w-full h-full object-cover" alt="photo" />
+                                                                                                            ) : (
+                                                                                                                <img src="https://paymiou.github.io/paymiou/August/reef.png" className="w-6 h-6 opacity-30 grayscale" alt="placeholder" />
+                                                                                                            )}
+                                                                                                        </div>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                })}
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        );
+                                                    })}
+
+                                                    {/* 🎯 [全新修改]：拔除傳統點擊按鈕，改為 IG 式滑動底部提示線 */}
+                                                    {displayLeaderboard.length > visibleCount ? (
+                                                        <div className="py-6 text-center text-slate-400 font-bold text-[11px] tracking-widest animate-pulse flex items-center justify-center gap-2">
+                                                            <div className="w-3 border-t border-slate-200"></div>
+                                                            <span>⏳ 往下捲動自動加載挑戰者 (還有 {displayLeaderboard.length - visibleCount} 筆)</span>
+                                                            <div className="w-3 border-t border-slate-200"></div>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="py-6 text-center text-slate-300 font-bold text-[10px] tracking-[0.2em] uppercase">
+                                                            ✨ 已載入全數挑戰者名單 ✨
+                                                        </div>
+                                                    )}
+
+                                                </div>
+                                            );
                                         })()
                                     )}
                                 </div>
@@ -3881,6 +4042,7 @@
                         <p className="text-[8px] text-slate-300 font-black tracking-[0.3em] uppercase text-center">Plastic-Free Action · 2026</p>
                     </div>
                 </div>
+                </>
             );
         };
 
