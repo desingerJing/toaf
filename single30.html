@@ -2673,13 +2673,13 @@
                         ${activeSpotlight.left - 4}px ${activeSpotlight.target === 'nav-collection' ? activeSpotlight.top - 10 : activeSpotlight.top - 4}px
                     )`
                                     }}
-                                    onTouchMove={(e) => {
-                                        if (activeSpotlight.target === 'draw-btn') return;
-                                        e.preventDefault();
-                                    }}
+                                    // onTouchMove={(e) => {
+                                    //     if (activeSpotlight.target === 'draw-btn') return;
+                                    //     e.preventDefault();
+                                    // }}
                                 />
                             ) : (
-                                <div className="absolute inset-0 bg-slate-950/50 pointer-events-auto" onTouchMove={(e) => e.preventDefault()} />
+                                <div className="absolute inset-0 bg-slate-950/50 pointer-events-none" />
                             )}
 
                             {/* 2. 綠色邊框輔助層 */}
