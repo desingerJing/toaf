@@ -2648,7 +2648,7 @@
                             {/* 1. 物理裁切防護罩：在滿版黑布中精準挖洞 */}
                             {activeSpotlight ? (
                                 <div
-                                    className={`absolute inset-0 bg-slate-950/50 transition-all duration-300 ${activeSpotlight.target === 'draw-btn' ? 'pointer-events-none' : 'pointer-events-auto'}`}
+                                    className={`absolute inset-0 bg-slate-950/50 transition-all duration-300 pointer-events-none`}
                                     style={{
                                         /* 🌟 終極重構：如果啟用雙框模式，clipPath 同時精準在黑布上挖出兩個獨立的洞 */
                                         clipPath: activeSpotlight.isDual ? `polygon(
