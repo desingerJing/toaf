@@ -1014,7 +1014,7 @@
                     const dharmaCount = myRowData.dharmaCount || 0;
 
                     finalCardContent = `
-                        <div onclick="selectChallenger('${myRowData.id}'); document.getElementById('filter-section').scrollIntoView({ behavior: 'smooth', block: 'start' });" class="w-full flex flex-col items-center justify-center cursor-pointer select-none transition-transform active:scale-[0.99]" title="點擊快速展開我的三十天成果時間軸">
+                        <div onclick="selectChallenger('${myRowData.id}', true); document.getElementById('filter-section').scrollIntoView({ behavior: 'smooth', block: 'start' });" class="w-full flex flex-col items-center justify-center cursor-pointer select-none transition-transform active:scale-[0.99]" title="點擊快速展開我的三十天成果時間軸">
                             <!-- 上半部：左右分流布局 -->
                             <div class="w-full flex items-center justify-between pb-3 px-1 sm:px-2">
                                 <!-- 左上：名字與雙數據微底色方塊 -->
@@ -1519,8 +1519,9 @@
             imgElement.classList.add('opacity-80');
         }
 
-        function selectChallenger(id) {
-            if (selectedChallengerId === id && window.innerWidth < 1024) {
+        function selectChallenger(id, fromClick = false) {
+            // 如果是在手機版，且該項目已被選取，只有在「非頂部按鈕點擊」的情況下才允許收合
+            if (selectedChallengerId === id && window.innerWidth < 1024 && !fromClick) {
                 toggleCollapseDetail();
                 return;
             }
@@ -1562,18 +1563,18 @@
 
             if (!hasWeeks) {
                 timelineHtml = `
-          <div class="w-full max-w-2xl relative animate-fade-in">
-            <div class="bg-white rounded-[24px] p-8 sm:p-12 text-center border border-slate-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center">
-              <div class="bg-blue-50/50 text-blue-500 w-16 h-16 rounded-full flex items-center justify-center mb-4">
-                <i class="fa-regular fa-paper-plane text-2xl"></i>
-              </div>
-              <h4 class="text-slate-800 font-black text-lg mb-2">尚未上傳行持紀錄</h4>
-              <p class="text-slate-500 text-sm max-w-xs leading-relaxed font-medium text-center">
-                讓我們一起為他加油 <br> 期待後續的精彩分享！
-              </p>
+        <div class="w-full max-w-2xl relative animate-fade-in">
+        <div class="bg-white rounded-[24px] p-8 sm:p-12 text-center border border-slate-100/80 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col items-center">
+            <div class="bg-blue-50/50 text-blue-500 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+            <i class="fa-regular fa-paper-plane text-2xl"></i>
             </div>
-          </div>
-        `;
+            <h4 class="text-slate-800 font-black text-lg mb-2">尚未上傳行持紀錄</h4>
+            <p class="text-slate-500 text-sm max-w-xs leading-relaxed font-medium text-center">
+            讓我們一起為他加油 <br> 期待後續的精彩分享！
+            </p>
+        </div>
+        </div>
+    `;
             } else {
                 ch.weeks.forEach((w, index) => {
                     const formattedText = w.text.replace(/\n/g, '<br>');
@@ -1594,15 +1595,15 @@
 
                             const idx = globalImgIndex++;
                             imgsHtml += `
-                <div class="relative group cursor-zoom-in overflow-hidden rounded-xl sm:rounded-[16px] border border-slate-200/60 bg-slate-50 transition-transform hover:scale-[1.02] w-[calc(33.333%-6px)] sm:w-32 aspect-square sm:h-32 flex-shrink-0 shadow-sm" onclick="event.stopPropagation(); openLightbox(${idx})">
-                  <img src="${imgUrl.trim()}" onerror="handleImageError(this, ${w.week})" alt="成果照" class="w-full h-full object-cover">
-                  <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm">
-                      <i class="fa-solid fa-magnifying-glass-plus"></i>
-                    </span>
-                  </div>
+            <div class="relative group cursor-zoom-in overflow-hidden rounded-xl sm:rounded-[16px] border border-slate-200/60 bg-slate-50 transition-transform hover:scale-[1.02] w-[calc(33.333%-6px)] sm:w-32 aspect-square sm:h-32 flex-shrink-0 shadow-sm" onclick="event.stopPropagation(); openLightbox(${idx})">
+                <img src="${imgUrl.trim()}" onerror="handleImageError(this, ${w.week})" alt="成果照" class="w-full h-full object-cover">
+                <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span class="bg-black/60 text-white text-[10px] font-bold px-2 py-1 rounded-full backdrop-blur-sm">
+                    <i class="fa-solid fa-magnifying-glass-plus"></i>
+                </span>
                 </div>
-              `;
+            </div>
+            `;
                         });
                         imageSection = `<div class="flex flex-wrap gap-2 sm:gap-3">${imgsHtml}</div>`;
                     }
@@ -1623,20 +1624,20 @@
                     }
 
                     timelineHtml += `
-            <div class="w-full max-w-2xl relative animate-fade-in" style="animation-delay: ${index * 80}ms">
-              <div class="bg-white rounded-[24px] p-5 sm:p-7 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-shadow flex flex-col text-left">
-                <div class="flex justify-between items-center border-b border-slate-100/60 pb-3 sm:pb-4 mb-4">
-                  <div class="flex items-center gap-1.5 sm:gap-2.5">
-                    <h3 class="text-[#1e3a8a] font-black text-[15px] sm:text-xl tracking-wide">第${weekZh}週實踐章心得</h3>
-                    <img src="${approvalIconUrl}" onclick="event.stopPropagation(); showApprovalToast(${isApproved})" alt="審核狀態" class="w-[50px] sm:w-[60px] h-auto object-contain cursor-pointer active:scale-95 transition-transform" title="${isApproved ? '班幹部審核通過' : '班幹部審核中'}">
-                  </div>
-                  ${likeBtnHtml}
+        <div class="w-full max-w-2xl relative animate-fade-in" style="animation-delay: ${index * 80}ms">
+            <div class="bg-white rounded-[24px] p-5 sm:p-7 shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100/80 hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-shadow flex flex-col text-left">
+            <div class="flex justify-between items-center border-b border-slate-100/60 pb-3 sm:pb-4 mb-4">
+                <div class="flex items-center gap-1.5 sm:gap-2.5">
+                <h3 class="text-[#1e3a8a] font-black text-[15px] sm:text-xl tracking-wide">第${weekZh}週實踐章心得</h3>
+                <img src="${approvalIconUrl}" onclick="event.stopPropagation(); showApprovalToast(${isApproved})" alt="審核狀態" class="w-[50px] sm:w-[60px] h-auto object-contain cursor-pointer active:scale-95 transition-transform" title="${isApproved ? '班幹部審核通過' : '班幹部審核中'}">
                 </div>
-                <div class="text-[15px] sm:text-[16px] text-slate-700 leading-relaxed font-bold mb-4 whitespace-pre-wrap">${formattedText || '<span class="text-slate-400 italic font-normal">本週僅上傳影像紀錄。</span>'}</div>
-                ${imageSection}
-              </div>
+                ${likeBtnHtml}
             </div>
-          `;
+            <div class="text-[15px] sm:text-[16px] text-slate-700 leading-relaxed font-bold mb-4 whitespace-pre-wrap">${formattedText || '<span class="text-slate-400 italic font-normal">本週僅上傳影像紀錄。</span>'}</div>
+            ${imageSection}
+            </div>
+        </div>
+        `;
                 });
             }
 
