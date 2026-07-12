@@ -1526,9 +1526,9 @@
                 const now = Date.now();
                 const oneHour = 4 * 60 * 60 * 1000;
 
-                // A. 【超時安全機制】閒置 1 小時強制踢除
+                // A. 【超時安全機制】閒置 4 小時強制踢除
                 if (isLoggedIn && lastActivity > 0 && (now - lastActivity > oneHour)) {
-                    forceLogout("由於您超過 1 小時未操作網頁，為了安全，系統已自動為您登出。");
+                    forceLogout("由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。");
                     return;
                 }
 
@@ -2533,6 +2533,7 @@
                                 setAlertData({ message: `歡迎回來，${name}！`, type: "success" });
                                 setTimeout(() => setAlertData(null), 1200);
 
+                                localStorage.setItem('last_activity_time', String(Date.now()));
                                 setIsLoggedIn(true);
                                 const urlParams = new URLSearchParams(window.location.search);
                                 const redirectUrl = urlParams.get('redirect');
