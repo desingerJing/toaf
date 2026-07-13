@@ -478,6 +478,7 @@
             const savedUid = localStorage.getItem('no_plastic_user_id');
 
             if (savedLoginStatus === 'true' && savedUid) {
+                localStorage.setItem('last_activity_time', String(Date.now()));
                 // 從該 UID 的專屬快取資料夾中，挖出最新的一日狀態快取
                 const localDataStr = localStorage.getItem(`data_${savedUid}`);
 
@@ -605,6 +606,17 @@
 
         window.onload = function () {
             autoLoginByFingerprint();
+            const updateActivity = () => {
+                if (isLoggedIn) {
+                    localStorage.setItem('last_activity_time', String(Date.now()));
+                }
+            };
+            window.addEventListener('click', updateActivity);
+            window.addEventListener('keydown', updateActivity);
+            window.addEventListener('scroll', updateActivity);
+            window.addEventListener('touchstart', updateActivity);
+
+            startTimeoutCheck();
             fetchData();
 
             const listContainer = document.getElementById('challengers-list');
@@ -623,6 +635,66 @@
                 });
             }
         };
+
+        // ==========================================
+        // 優化細節版：閒置過久超時偵測巡邏哨
+        // ==========================================
+        function startTimeoutCheck() {
+            const TIMEOUT_MS = 4 * 60 * 60 * 1000;
+
+            const checkInterval = setInterval(() => {
+                if (!isLoggedIn) return;
+
+                const lastActivity = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
+                const now = Date.now();
+
+                if (lastActivity > 0 && (now - lastActivity > TIMEOUT_MS)) {
+
+                    // 🎯 優化細節 3：防禦鎖。如果 User 其實在別的分頁已經「重新整理並完成登入」，
+                    // 新憑證已經核發，這裡直接攔截 return，絕對不跳出提示框！
+                    const hasTokenOnCheck = localStorage.getItem('no_plastic_logged_in') === 'true' || sessionStorage.getItem('no_plastic_logged_in') === 'true';
+                    if (hasTokenOnCheck && (now - parseInt(localStorage.getItem('last_activity_time') || "0", 10) <= TIMEOUT_MS)) {
+                        return;
+                    }
+
+                    clearInterval(checkInterval);
+
+                    // 清除所有本機與會話登入憑證
+                    localStorage.removeItem('no_plastic_logged_in');
+                    localStorage.removeItem('no_plastic_user_name');
+                    localStorage.removeItem('last_activity_time');
+                    localStorage.removeItem('no_plastic_logged_in_user_id');
+                    sessionStorage.removeItem('no_plastic_logged_in');
+                    sessionStorage.removeItem('no_plastic_user_name');
+                    sessionStorage.removeItem('no_plastic_user_id');
+
+                    isLoggedIn = false;
+                    userId = "";
+                    myGivenLikes = [];
+
+                    // 🎯 優化細節 1：動態注入與個人挑戰頁 1:1 完全同款的精緻系統提示彈窗
+                    const alertModal = document.createElement('div');
+                    alertModal.className = "fixed inset-0 bg-black/70 flex items-center justify-center p-6 backdrop-blur-md z-[99999] animate-fade-in";
+                    alertModal.innerHTML = `
+            <div class="bg-white rounded-[32px] p-8 text-center w-full max-w-xs shadow-2xl border border-slate-100 transform scale-100 transition-transform duration-300">
+                <div class="text-4xl mb-4">⚠️</div>
+                <h3 class="text-lg font-black mb-2 text-slate-800">系統通知</h3>
+                <p class="text-xs text-slate-500 leading-relaxed font-medium mb-6 whitespace-pre-line">由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。</p>
+                <button id="timeout-confirm-btn" class="w-full py-4 bg-blue-900 text-white rounded-2xl font-black shadow-lg active:scale-95 transition-transform">
+                    確認
+                </button>
+            </div>
+        `;
+                    document.body.appendChild(alertModal);
+
+                    // 🎯 優化細節 2：對提示框按下確定後，頁面自動執行重新整理（F5）
+                    document.getElementById('timeout-confirm-btn').onclick = function () {
+                        alertModal.remove(); // 移除彈窗
+                        window.location.reload(); // 🚀 重新整理網頁，讓個人橫幅完全無縫變回登入提示！
+                    };
+                }
+            }, 15000);
+        }
 
         function columnLetterToIndex(letter) {
             let column = 0, length = letter.length;
