@@ -1263,126 +1263,80 @@
                     return; // 攔截完畢，結束此函式
                 }
 
-                // 🌟 2. 處理返回其他步驟
-                let idMap = {
-                    'score-panel': 'tour-score-panel',
-                    'nav-collection': 'tour-nav-collection',
-                    'nav-report': 'tour-nav-report',
-                    'nav-ranking': 'tour-nav-ranking',
-                    'draw-btn': 'tour-draw-btn',
-                    'core-task': 'tour-core-task',
-                    'jellyfish': 'tour-jellyfish' // 確保水母 ID 在這裡
-                };
+                // ========================================================
+                // 🌟 2. 處理返回其他步驟 (同步改為雙層延遲，防止回上一步時座標跑位)
+                // ========================================================
+                setTimeout(() => {
+                    let idMap = {
+                        'score-panel': 'tour-score-panel',
+                        'nav-collection': 'tour-nav-collection',
+                        'nav-report': 'tour-nav-report',
+                        'nav-ranking': 'tour-nav-ranking',
+                        'draw-btn': 'tour-draw-btn',
+                        'core-task': 'tour-core-task',
+                        'jellyfish': 'tour-jellyfish'
+                    };
+                    const targetId = idMap[nextStep.target];
 
-                const targetId = idMap[nextStep.target];
-                const el = document.getElementById(targetId);
+                    // 💡 關鍵：回上一步時，同樣等 300ms 讓分頁切換完、畫面定型，再抓最準的物理座標
+                    setTimeout(() => {
+                        const el = document.getElementById(targetId);
+                        if (!el) return;
 
-                if (el) {
-                    // 🌟 1. 處理第九步「水母」：借用第二步(記分板)的坐標來縮小定位
-                    if (nextStep.target === 'jellyfish') {
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-
-                        setTimeout(() => {
-                            // 🚀 核心修正：不借用記分板了，直接抓水母圖示本體元件！
-                            const jellyfishEl = document.getElementById('tour-jellyfish');
-                            if (jellyfishEl) {
-                                const jellyRect = jellyfishEl.getBoundingClientRect();
-
-                                // 計算水母本體到網頁最頂端的真實 HTML 絕對物理距離
-                                let actualTop = 0;
-                                let currentEl = jellyfishEl;
-                                while (currentEl) {
-                                    actualTop += currentEl.offsetTop;
-                                    currentEl = currentEl.offsetParent;
-                                }
-
-                                // 讓高光綠框完美包覆水母本體（微調寬高比原本更精準）
-                                setActiveSpotlight({
-                                    top: actualTop - 4,
-                                    left: jellyRect.left - 4,
-                                    width: jellyRect.width + 8,
-                                    height: jellyRect.height + 8,
-                                    target: nextStep.target
-                                });
-                            }
-                        }, 350);
-                    } else if (nextStep.target === 'draw-btn') {
                         const rect = el.getBoundingClientRect();
                         const absoluteTop = rect.top + window.pageYOffset;
 
-                        // 🚀 修改：計算捲動位置，讓按鈕的底部剛好貼在視窗底部往上 10px 的地方
-                        const targetScrollTop = absoluteTop - window.innerHeight + rect.height + 10;
-
-                        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-                        window.scrollTo({ top: Math.min(maxScroll, Math.max(0, targetScrollTop)), behavior: 'smooth' });
-
-                        setTimeout(() => {
-                            const finalRect = el.getBoundingClientRect();
-                            const absoluteElementTop = finalRect.top + window.pageYOffset;
-                            setActiveSpotlight({
-                                top: absoluteElementTop,
-                                left: finalRect.left,
-                                width: finalRect.width,
-                                height: finalRect.height,
-                                target: nextStep.target
-                            });
-                        }, 300);
-
-                        // 🌟 處理其他預設步驟 (包含第二、三、四、五、七步)
-                    } else {
-                        // 計算原始坐標並平滑置中捲動
-                        const rect = el.getBoundingClientRect();
-                        const absoluteTop = rect.top + window.pageYOffset;
-
-                        // 🌟 新增：返回時若遇到步驟 3、4、5，也強制讓捲動目標歸零（回到頂端）
-                        const topTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
-                        let targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
-                        if (topTargets.includes(nextStep.target)) {
-                            targetScrollTop = absoluteTop - 10;
-                        } else if (nextStep.target === 'core-task') {
-                            targetScrollTop = Math.max(0, absoluteTop - 72);
-                        }
-
-                        const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-
-                        window.scrollTo({
-                            top: Math.min(maxScroll, Math.max(0, targetScrollTop)),
-                            behavior: 'smooth'
-                        });
-
-                        // 延遲確保滑動結束才抓最終坐標
-                        setTimeout(() => {
-                            const finalRect = el.getBoundingClientRect();
-                            let adjustedTop = finalRect.top;
-                            let adjustedHeight = finalRect.height;
-                            let adjustedLeft = finalRect.left;
-                            let adjustedWidth = finalRect.width;
-
-                            // 第三步的綠框高度對齊微調
-                            if (nextStep.target === 'nav-collection') {
-                                adjustedTop = finalRect.top + 4;
-                                adjustedHeight = finalRect.height - 4;
-                            }
-
-                            // 🚀 核心修正：強行修正第 7 步的目標元素。直接綁定精準的 DOM 節點與 HTML 絕對頂部高度
-                            if (nextStep.target === 'core-task') {
-                                const realCoreTaskEl = document.getElementById('tour-core-task');
-                                if (realCoreTaskEl) {
-                                    const coreRect = realCoreTaskEl.getBoundingClientRect();
-
-                                    // 沿著父級節點一路往上累加 offsetTop，取得它相對於整個網頁最頂端的物理座標
+                        if (nextStep.target === 'jellyfish') {
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                            setTimeout(() => {
+                                const jellyfishEl = document.getElementById('tour-jellyfish');
+                                if (jellyfishEl) {
+                                    const jellyRect = jellyfishEl.getBoundingClientRect();
                                     let actualTop = 0;
-                                    let currentEl = realCoreTaskEl;
-                                    while (currentEl) {
-                                        actualTop += currentEl.offsetTop;
-                                        currentEl = currentEl.offsetParent;
-                                    }
-
-                                    adjustedTop = actualTop;
-                                    adjustedHeight = realCoreTaskEl.offsetHeight;
-                                    adjustedLeft = coreRect.left;
-                                    adjustedWidth = coreRect.width;
+                                    let currentEl = jellyfishEl;
+                                    while (currentEl) { actualTop += currentEl.offsetTop; currentEl = currentEl.offsetParent; }
+                                    setActiveSpotlight({ top: actualTop - 4, left: jellyRect.left - 4, width: jellyRect.width + 8, height: jellyRect.height + 8, target: nextStep.target });
                                 }
+                            }, 350);
+                        } else if (nextStep.target === 'draw-btn') {
+                            const targetScrollTop = absoluteTop - window.innerHeight + rect.height + 10;
+                            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+                            window.scrollTo({ top: Math.min(maxScroll, Math.max(0, targetScrollTop)), behavior: 'smooth' });
+                            setTimeout(() => {
+                                const finalRect = el.getBoundingClientRect();
+                                setActiveSpotlight({ top: finalRect.top + window.pageYOffset, left: finalRect.left, width: finalRect.width, height: finalRect.height, target: nextStep.target });
+                            }, 300);
+                        } else {
+                            // 🎯 處理返回步驟 3~5 的貼頂 10px 滾動
+                            const topTargets = ['nav-collection', 'nav-report', 'nav-ranking'];
+                            let targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+
+                            if (topTargets.includes(nextStep.target)) {
+                                targetScrollTop = absoluteTop - 10; // 貼齊頂部 10px 
+                            } else if (nextStep.target === 'core-task') {
+                                targetScrollTop = Math.max(0, absoluteTop - 72);
+                            } else if (nextStep.target === 'header') {
+                                targetScrollTop = 0;
+                            }
+
+                            const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+                            window.scrollTo({
+                                top: Math.min(maxScroll, Math.max(0, targetScrollTop)),
+                                behavior: 'smooth'
+                            });
+
+                            // 高光框框跟著排版定型後的按鈕重新計算
+                            let adjustedTop = rect.top + window.pageYOffset;
+                            let adjustedHeight = rect.height;
+                            let adjustedLeft = rect.left;
+                            let adjustedWidth = rect.width;
+
+                            if (nextStep.target === 'nav-collection' || nextStep.target === 'nav-report' || nextStep.target === 'nav-ranking') {
+                                let actualTop = 0;
+                                let currentEl = el;
+                                while (currentEl) { actualTop += currentEl.offsetTop; currentEl = currentEl.offsetParent; }
+                                adjustedTop = actualTop + 4;
+                                adjustedHeight = rect.height - 4;
                             }
 
                             setActiveSpotlight({
@@ -1392,12 +1346,10 @@
                                 height: adjustedHeight,
                                 target: nextStep.target
                             });
-                        }, 350);
-                    }
-                } else {
-                    // 找不到元素時的安全機制
-                    setActiveSpotlight(null);
-                }
+                        }
+                    }, 300); // 👈 補上相同的 300 毫秒安全排版快門時間
+
+                }, 250);
             };
 
             // 啟動導覽 (升級版：可接收是否從按鈕開啟的標記)
@@ -2012,6 +1964,8 @@
                     setShowOracleModal(true);
                     setIsDrawing(false);
 
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+
                     const oracleStr = `第${selected.id}則-${selected.title}`;
                     const tasksListStr = completedTasks.length > 0 ? completedTasks.join("、") : "未完成 any 項目";
                     const dScore = completedTasks.length;
@@ -2516,8 +2470,9 @@
 
                 {/* ===== 每日法語卡牌彈窗 ===== */}
                 {showOracleModal && dailyOracle && (
-                    <div className="absolute inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-5 py-8">
-                        <div className="bg-white rounded-[32px] w-full max-w-[340px] px-5 pt-5 pb-6 shadow-[0_25px_70px_rgba(30,58,138,0.3)] border border-blue-100 animate-scale-in relative overflow-hidden">
+                    <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-start justify-center px-5 py-[10px] overflow-y-auto pointer-events-auto">
+                            {/* 內層加入 min-h-full 的彈性容器，確保滑動手勢自然，並加上 my-auto 的防守 */}
+                            <div className="w-full max-w-[340px] bg-white rounded-[32px] px-5 pt-5 pb-6 shadow-[0_25px_70px_rgba(30,58,138,0.3)] border border-blue-100 animate-scale-in relative overflow-hidden my-0">
                             <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-blue-50/80 to-transparent pointer-events-none"></div>
                             <OracleCard oracle={dailyOracle} compact />
                             <div className="flex justify-center mt-5 relative z-10">
