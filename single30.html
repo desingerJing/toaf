@@ -529,11 +529,8 @@
                     callJsonpApi('login', { classNum: c, lastThree: p },
                         (data) => {
                             if (data.result === "success") {
-                                // ❌ 刪除原本複雜的 Date 扣來扣去公式
-                                // ⭕ 直接拿後端給的精準天數，若活動還沒開始（小於1）保底秀第1天
+                                localStorage.setItem('last_activity_time', String(Date.now()));
                                 const currentDay = data.currentDay && data.currentDay > 0 ? data.currentDay : 1;
-
-                                //showAlert(data.userName ? `🎉 歡迎回來 ${data.userName}\n已進入第 ${currentDay} 天無塑實踐` : "🎉 登入成功！", "success");
                                 showAlert(data.message || "🎉 登入成功！", "success");
                                 setTimeout(() => { onLoginSuccess(data, rememberMe, c); }, 1500);
                             } else {
@@ -1100,7 +1097,7 @@
                     }
 
                     // ========================================================
-                    // 2. 常規單高光步驟處理區 (延遲 100ms 預留給分頁切換即可)
+                    // 2. 常規單高光步驟處理區 (延遲預留給分頁切換與排版靜止)
                     // ========================================================
                     setTimeout(() => {
                         let idMap = {
@@ -1113,124 +1110,80 @@
                             'jellyfish': 'tour-jellyfish'
                         };
                         const targetId = idMap[nextStep.target];
-                        const el = document.getElementById(targetId);
 
-                        if (el) {
-                            // 🌟 處理第九步「水母」：強制捲動回最頂端，並借用第二步坐標優化定位
+                        // 💡 關鍵：等 300ms 讓 React 確實切換完頁籤、畫面排版定型後，才去抓最準的 HTML 物理座標
+                        setTimeout(() => {
+                            const el = document.getElementById(targetId);
+                            if (!el) return;
+
+                            const rect = el.getBoundingClientRect();
+                            // 計算該元素相對於整個網頁最頂端的真實絕對高度
+                            const absoluteTop = rect.top + window.pageYOffset;
+
                             if (nextStep.target === 'jellyfish') {
                                 window.scrollTo({ top: 0, behavior: 'smooth' });
-
                                 setTimeout(() => {
-                                    // 🚀 核心修正：不借用記分板了，直接抓水母圖示本體元件！
                                     const jellyfishEl = document.getElementById('tour-jellyfish');
                                     if (jellyfishEl) {
                                         const jellyRect = jellyfishEl.getBoundingClientRect();
-
-                                        // 計算水母本體到網頁最頂端的真實 HTML 絕對物理距離
                                         let actualTop = 0;
                                         let currentEl = jellyfishEl;
-                                        while (currentEl) {
-                                            actualTop += currentEl.offsetTop;
-                                            currentEl = currentEl.offsetParent;
-                                        }
-
-                                        // 讓高光綠框完美包覆水母本體（微調寬高比原本更精準）
-                                        setActiveSpotlight({
-                                            top: actualTop - 4,
-                                            left: jellyRect.left - 4,
-                                            width: jellyRect.width + 8,
-                                            height: jellyRect.height + 8,
-                                            target: nextStep.target
-                                        });
+                                        while (currentEl) { actualTop += currentEl.offsetTop; currentEl = currentEl.offsetParent; }
+                                        setActiveSpotlight({ top: actualTop - 4, left: jellyRect.left - 4, width: jellyRect.width + 8, height: jellyRect.height + 8, target: nextStep.target });
                                     }
                                 }, 350);
                             } else if (nextStep.target === 'draw-btn') {
-                                const rect = el.getBoundingClientRect();
-                                const absoluteTop = rect.top + window.pageYOffset;
                                 const targetScrollTop = absoluteTop - window.innerHeight + rect.height + 10;
-
                                 const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
                                 window.scrollTo({ top: Math.min(maxScroll, Math.max(0, targetScrollTop)), behavior: 'smooth' });
-
                                 setTimeout(() => {
                                     const finalRect = el.getBoundingClientRect();
-                                    const absoluteElementTop = finalRect.top + window.pageYOffset;
-                                    setActiveSpotlight({
-                                        top: absoluteElementTop,
-                                        left: finalRect.left,
-                                        width: finalRect.width,
-                                        height: finalRect.height,
-                                        target: nextStep.target
-                                    });
+                                    setActiveSpotlight({ top: finalRect.top + window.pageYOffset, left: finalRect.left, width: finalRect.width, height: finalRect.height, target: nextStep.target });
                                 }, 300);
-
-                                // 🌟 處理其他預設步驟 (包含第二、三、四、五、七步)
                             } else {
-                                const rect = el.getBoundingClientRect();
-                                const absoluteTop = rect.top + window.pageYOffset;
-
-                                // 🌟 新增：如果是步驟 3、4、5，強制讓捲動目標歸零（回到頂端）
-                                const topTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
+                                // 🎯 處理步驟 3~5 的頁籤貼頂 10px 捲動
+                                const topTargets = ['nav-collection', 'nav-report', 'nav-ranking'];
                                 let targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
+
                                 if (topTargets.includes(nextStep.target)) {
-                                    targetScrollTop = 0;
+                                    targetScrollTop = absoluteTop - 10; // 精準讓頁籤與視窗頂部保持 10px
                                 } else if (nextStep.target === 'core-task') {
                                     targetScrollTop = Math.max(0, absoluteTop - 72);
+                                } else if (nextStep.target === 'header') {
+                                    targetScrollTop = 0;
                                 }
 
                                 const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
-
                                 window.scrollTo({
                                     top: Math.min(maxScroll, Math.max(0, targetScrollTop)),
                                     behavior: 'smooth'
                                 });
 
-                                setTimeout(() => {
-                                    const finalRect = el.getBoundingClientRect();
-                                    let adjustedTop = finalRect.top;
-                                    let adjustedHeight = finalRect.height;
-                                    let adjustedLeft = finalRect.left;
-                                    let adjustedWidth = finalRect.width;
+                                // 捲動的同時，立刻把高光綠框精準套在「排版定型後」的頁籤本體上
+                                let adjustedTop = rect.top + window.pageYOffset;
+                                let adjustedHeight = rect.height;
+                                let adjustedLeft = rect.left;
+                                let adjustedWidth = rect.width;
 
-                                    // 第三步的綠框高度對齊微調
-                                    if (nextStep.target === 'nav-collection') {
-                                        adjustedTop = finalRect.top + 4;
-                                        adjustedHeight = finalRect.height - 4;
-                                    }
+                                if (nextStep.target === 'nav-collection' || nextStep.target === 'nav-report' || nextStep.target === 'nav-ranking') {
+                                    // 修正：因為 absolute 遮罩會隨頁面延伸，抓網頁絕對物理高度最保險
+                                    let actualTop = 0;
+                                    let currentEl = el;
+                                    while (currentEl) { actualTop += currentEl.offsetTop; currentEl = currentEl.offsetParent; }
+                                    adjustedTop = actualTop + 4;
+                                    adjustedHeight = rect.height - 4;
+                                }
 
-                                    // 🚀 核心修正：強行修正第 7 步的目標元素。直接綁定精準的 DOM 節點與 HTML 絕對頂部高度
-                                    if (nextStep.target === 'core-task') {
-                                        const realCoreTaskEl = document.getElementById('tour-core-task');
-                                        if (realCoreTaskEl) {
-                                            const coreRect = realCoreTaskEl.getBoundingClientRect();
-
-                                            // 沿著父級節點一路往上累加 offsetTop，取得它相對於整個網頁最頂端的物理座標
-                                            let actualTop = 0;
-                                            let currentEl = realCoreTaskEl;
-                                            while (currentEl) {
-                                                actualTop += currentEl.offsetTop;
-                                                currentEl = currentEl.offsetParent;
-                                            }
-
-                                            adjustedTop = actualTop;
-                                            adjustedHeight = realCoreTaskEl.offsetHeight;
-                                            adjustedLeft = coreRect.left;
-                                            adjustedWidth = coreRect.width;
-                                        }
-                                    }
-
-                                    setActiveSpotlight({
-                                        top: adjustedTop,
-                                        left: adjustedLeft,
-                                        width: adjustedWidth,
-                                        height: adjustedHeight,
-                                        target: nextStep.target
-                                    });
-                                }, 350);
+                                setActiveSpotlight({
+                                    top: adjustedTop,
+                                    left: adjustedLeft,
+                                    width: adjustedWidth,
+                                    height: adjustedHeight,
+                                    target: nextStep.target
+                                });
                             }
-                        } else {
-                            setActiveSpotlight(null);
-                        }
+                        }, 300); // 👈 給予 300 毫秒的安全排版緩衝時間
+
                     }, 250);
 
                 } else {
@@ -1385,7 +1338,7 @@
                         const topTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
                         let targetScrollTop = absoluteTop - (window.innerHeight / 2) + (rect.height / 2);
                         if (topTargets.includes(nextStep.target)) {
-                            targetScrollTop = 0;
+                            targetScrollTop = absoluteTop - 10;
                         } else if (nextStep.target === 'core-task') {
                             targetScrollTop = Math.max(0, absoluteTop - 72);
                         }
@@ -1671,17 +1624,21 @@
                     return;
                 }
 
-                // B. 🎯 臨界點 2：網頁運行中，每 30 秒動態巡邏的「熱感應阻斷器」(已完美對齊 TIMEOUT_MS)
+                // B. 🎯 臨界點 2：網頁運行中，縮短為每 15 秒動態巡邏，防守更即時
                 const checkTimeoutInterval = setInterval(() => {
                     const lastActivity = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
+                    const now = Date.now();
 
-                    if (lastActivity > 0 && (Date.now() - lastActivity > TIMEOUT_MS)) {
+                    if (lastActivity > 0 && (now - lastActivity > TIMEOUT_MS)) {
                         clearInterval(checkTimeoutInterval);
 
-                        // 先斬後奏：在背景寂靜清除 localStorage 憑證，防備直接關閉或重整
+                        const hasTokenOnCheck = localStorage.getItem('no_plastic_logged_in') === 'true' || sessionStorage.getItem('no_plastic_logged_in') === 'true';
+                        if (hasTokenOnCheck && (now - parseInt(localStorage.getItem('last_activity_time') || "0", 10) <= TIMEOUT_MS)) {
+                            return;
+                        }
+
                         forceLogout("", true);
 
-                        // 彈出精緻阻斷提示框（文字同步修改為 4 小時，消除語意衝突）
                         setCustomAlert({
                             title: "系統通知",
                             message: "由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。",
@@ -1693,7 +1650,7 @@
                             }
                         });
                     }
-                }, 30000);
+                }, 15000);
 
                 return () => {
                     window.removeEventListener('click', updateActivity);
@@ -2557,6 +2514,76 @@
             return (
                 <>
 
+                {/* ===== 每日法語卡牌彈窗 ===== */}
+                {showOracleModal && dailyOracle && (
+                    <div className="absolute inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-5 py-8">
+                        <div className="bg-white rounded-[32px] w-full max-w-[340px] px-5 pt-5 pb-6 shadow-[0_25px_70px_rgba(30,58,138,0.3)] border border-blue-100 animate-scale-in relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-blue-50/80 to-transparent pointer-events-none"></div>
+                            <OracleCard oracle={dailyOracle} compact />
+                            <div className="flex justify-center mt-5 relative z-10">
+                                <button onClick={() => {
+                                    setShowOracleModal(false);
+                                    setSeenOracleDate(new Date().toDateString());
+
+                                    // ─── 💡 核心連動：收下法語後，自動跳轉到「第 7 步」法語核心任務 ───
+                                    const hasSeenTour = localStorage.getItem('has_seen_tour_2026') === 'true';
+                                    if (!hasSeenTour && baseScore === 0) { // (保留原本判斷條件)
+
+                                        // 延遲 500ms 等法語卡片優雅縮回關閉後，開啟第七步「核心任務」說明
+                                        setTimeout(() => {
+                                            setActiveTab('daily');
+
+                                            // 🚀 修正：給 React 300ms 的時間，先把 daily 分頁的「法語核心任務卡片」確實渲染到畫面上
+                                            setTimeout(() => {
+                                                setTourIndex(6); // 🌟 這時候才安全確立第 7 步的導覽狀態
+
+                                                const el = document.getElementById('tour-core-task');
+                                                if (el) {
+                                                    // 1. 平滑捲動到預定位置
+                                                    const absoluteTop = el.getBoundingClientRect().top + window.pageYOffset;
+                                                    window.scrollTo({
+                                                        top: Math.max(0, absoluteTop - 72), // 完美貼齊頁籤下方10px
+                                                        behavior: 'smooth'
+                                                    });
+
+                                                    // 2. 🚀 關鍵修正：將畫高光綠框的延遲從 350ms 加大到 600ms！
+                                                    // 確保手機瀏覽器「已經完全滾動靜止」後，才去抓取絕對座標，這樣抽完法語直接進第7步就 100% 絕對正確不走位！
+                                                    setTimeout(() => {
+                                                        const realCoreTaskEl = document.getElementById('tour-core-task');
+                                                        if (realCoreTaskEl) {
+                                                            const coreRect = realCoreTaskEl.getBoundingClientRect();
+
+                                                            let actualTop = 0;
+                                                            let currentEl = realCoreTaskEl;
+                                                            while (currentEl) {
+                                                                actualTop += currentEl.offsetTop;
+                                                                currentEl = currentEl.offsetParent;
+                                                            }
+
+                                                            setActiveSpotlight({
+                                                                top: actualTop,
+                                                                left: coreRect.left,
+                                                                width: coreRect.width,
+                                                                height: realCoreTaskEl.offsetHeight,
+                                                                target: 'core-task'
+                                                            });
+                                                        }
+                                                    }, 600);
+                                                }
+                                            }, 300);
+                                        }, 500);
+                                    }
+
+                                    // ─────────────────────────────────────────────────────────
+                                }}
+                                    className="px-10 h-[46px] rounded-full bg-gradient-to-r from-blue-600 to-blue-800 text-white text-[15px] font-bold tracking-[0.18em] shadow-[0_8px_20px_rgba(37,99,235,0.3)] active:scale-[0.97] transition-all duration-200">領受法語</button>
+
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                
                 {/* ====== 操作說明 Modal ====== */}
                     {showInstructionModal && (
                         <div className="absolute w-full h-full inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-6 animate-fade-in" onClick={() => setShowInstructionModal(false)}>
@@ -2719,7 +2746,7 @@
                                     }
 
                                     // 2. 第三、四、五步 (三個上方頁籤)：統一設定在「綠框的上方」
-                                    const aboveTargets = ['nav-collection', 'nav-report', 'nav-ranking', 'header'];
+                                    const aboveTargets = ['header'];
                                     if (aboveTargets.includes(activeSpotlight.target)) {
                                         // let calculatedTop = activeSpotlight.top - 230;
                                         let calculatedTop = 0;
@@ -3083,75 +3110,6 @@
                         </div>
                     )}
 
-                    {/* ===== 每日法語卡牌彈窗 ===== */}
-                    {showOracleModal && dailyOracle && (
-                        <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-5 py-8">
-                            <div className="bg-white rounded-[32px] w-full max-w-[340px] px-5 pt-5 pb-6 shadow-[0_25px_70px_rgba(30,58,138,0.3)] border border-blue-100 animate-scale-in relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-blue-50/80 to-transparent pointer-events-none"></div>
-                                <OracleCard oracle={dailyOracle} compact />
-                                <div className="flex justify-center mt-5 relative z-10">
-                                    <button onClick={() => {
-                                        setShowOracleModal(false);
-                                        setSeenOracleDate(new Date().toDateString());
-
-                                        // ─── 💡 核心連動：收下法語後，自動跳轉到「第 7 步」法語核心任務 ───
-                                        const hasSeenTour = localStorage.getItem('has_seen_tour_2026') === 'true';
-                                        if (!hasSeenTour && baseScore === 0) { // (保留原本判斷條件)
-
-                                            // 延遲 500ms 等法語卡片優雅縮回關閉後，開啟第七步「核心任務」說明
-                                            setTimeout(() => {
-                                                setActiveTab('daily');
-
-                                                // 🚀 修正：給 React 300ms 的時間，先把 daily 分頁的「法語核心任務卡片」確實渲染到畫面上
-                                                setTimeout(() => {
-                                                    setTourIndex(6); // 🌟 這時候才安全確立第 7 步的導覽狀態
-
-                                                    const el = document.getElementById('tour-core-task');
-                                                    if (el) {
-                                                        // 1. 平滑捲動到預定位置
-                                                        const absoluteTop = el.getBoundingClientRect().top + window.pageYOffset;
-                                                        window.scrollTo({
-                                                            top: Math.max(0, absoluteTop - 72), // 完美貼齊頁籤下方10px
-                                                            behavior: 'smooth'
-                                                        });
-
-                                                        // 2. 🚀 關鍵修正：將畫高光綠框的延遲從 350ms 加大到 600ms！
-                                                        // 確保手機瀏覽器「已經完全滾動靜止」後，才去抓取絕對座標，這樣抽完法語直接進第7步就 100% 絕對正確不走位！
-                                                        setTimeout(() => {
-                                                            const realCoreTaskEl = document.getElementById('tour-core-task');
-                                                            if (realCoreTaskEl) {
-                                                                const coreRect = realCoreTaskEl.getBoundingClientRect();
-
-                                                                let actualTop = 0;
-                                                                let currentEl = realCoreTaskEl;
-                                                                while (currentEl) {
-                                                                    actualTop += currentEl.offsetTop;
-                                                                    currentEl = currentEl.offsetParent;
-                                                                }
-
-                                                                setActiveSpotlight({
-                                                                    top: actualTop,
-                                                                    left: coreRect.left,
-                                                                    width: coreRect.width,
-                                                                    height: realCoreTaskEl.offsetHeight,
-                                                                    target: 'core-task'
-                                                                });
-                                                            }
-                                                        }, 600);
-                                                    }
-                                                }, 300);
-                                            }, 500);
-                                        }
-
-                                        // ─────────────────────────────────────────────────────────
-                                    }}
-                                        className="px-10 h-[46px] rounded-full bg-gradient-to-r from-blue-600 to-blue-800 text-white text-[15px] font-bold tracking-[0.18em] shadow-[0_8px_20px_rgba(37,99,235,0.3)] active:scale-[0.97] transition-all duration-200">領受法語</button>
-
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* ====== Header ====== */}
                     <div className="pt-6 pb-3 px-6 text-center bg-white border-b border-slate-50 relative shrink-0">
 
@@ -3353,7 +3311,8 @@
                     )}
 
                     {/* ====== Main Nav (分頁功能置頂列) ====== */}
-                    <div className="flex overflow-x-auto hide-scrollbar border-b border-slate-100 px-4 pt-2 pb-1 bg-white/95 backdrop-blur-md sticky top-0 z-[100] shrink-0 shadow-sm">
+                    <div className="overflow-x-auto hide-scrollbar">
+                    <div className="flex border-b border-slate-100 px-4 pt-2 pb-1 bg-white/95 backdrop-blur-md sticky top-0 z-[100] shrink-0 shadow-sm">
                         {[
                             { id: 'daily', label: '每日法語', icon: <Icons.Daily />, tourId: 'tour-nav-daily' },
                             /* 🌟 核心修正：為法語成就頁籤補上專屬的 tourId */
@@ -3372,6 +3331,7 @@
                                 <span className="text-[10px] font-black whitespace-nowrap">{t.label}</span>
                             </button>
                         ))}
+                    </div>
                     </div>
 
                     {/* ====== Content Area ====== */}
