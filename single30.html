@@ -1578,14 +1578,21 @@
 
                 // B. 🎯 臨界點 2：網頁運行中，縮短為每 15 秒動態巡邏，防守更即時
                 const checkTimeoutInterval = setInterval(() => {
+                    const hasTokenOnCheck = localStorage.getItem('no_plastic_logged_in') === 'true' || sessionStorage.getItem('no_plastic_logged_in') === 'true';
+                    if (!hasTokenOnCheck) {
+                        clearInterval(checkTimeoutInterval);
+                        return;
+                    }
+
                     const lastActivity = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
                     const now = Date.now();
 
                     if (lastActivity > 0 && (now - lastActivity > TIMEOUT_MS)) {
                         clearInterval(checkTimeoutInterval);
 
-                        const hasTokenOnCheck = localStorage.getItem('no_plastic_logged_in') === 'true' || sessionStorage.getItem('no_plastic_logged_in') === 'true';
-                        if (hasTokenOnCheck && (now - parseInt(localStorage.getItem('last_activity_time') || "0", 10) <= TIMEOUT_MS)) {
+                        // 再次即時抓取最新時間，防止使用者在 15 秒間隔內剛好重新登入更新了快取
+                        const doubleCheckActivity = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
+                        if (now - doubleCheckActivity <= TIMEOUT_MS) {
                             return;
                         }
 
