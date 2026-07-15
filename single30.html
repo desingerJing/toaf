@@ -2549,7 +2549,7 @@
                 {unlockAlert && (
                     <div className="fixed inset-0 z-[150] flex items-start justify-center p-6 bg-slate-950/60 backdrop-blur-md overflow-y-auto cursor-pointer" onClick={closeUnlockAlert} >
                         {unlockAlert === 'achievement' ? (
-                            <div className="w-full max-w-[300px] relative animate-scale-in" onClick={e => e.stopPropagation()}>
+                            <div className="w-full max-w-[300px] relative animate-scale-in pt-20" onClick={e => e.stopPropagation()}>
                                 <div className="absolute inset-0 bg-amber-500/20 blur-[80px] rounded-full"></div>
                                 <div className="relative bg-gradient-to-b from-slate-800 to-slate-950 border border-amber-500/40 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent opacity-50"></div>
@@ -3032,7 +3032,7 @@
                     {/* 🌟稱號提升連鎖彈窗 UI */}
                     {showRankUpAlert && (
                         <div className="fixed inset-0 z-[160] flex items-start justify-center p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in overflow-y-auto">
-                            <div className="w-full max-w-[300px] relative animate-scale-in">
+                            <div className="w-full max-w-[300px] relative animate-scale-in pt-20">
                                 <div className="absolute inset-0 bg-amber-400/20 blur-[80px] rounded-full"></div>
                                 <div className="relative bg-white border border-amber-200 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300"></div>
