@@ -2538,6 +2538,57 @@
                     </div>
                 )}
 
+                {/* ===== 解鎖成就與上傳成功彈窗 ===== */}
+                {unlockAlert && (
+                    <div className="fixed inset-0 z-[150] flex items-start justify-center p-6 bg-slate-950/60 backdrop-blur-md overflow-y-auto cursor-pointer" onClick={closeUnlockAlert} >
+                        {unlockAlert === 'achievement' ? (
+                            <div className="w-full max-w-[300px] relative animate-scale-in" onClick={e => e.stopPropagation()}>
+                                <div className="absolute inset-0 bg-amber-500/20 blur-[80px] rounded-full"></div>
+                                <div className="relative bg-gradient-to-b from-slate-800 to-slate-950 border border-amber-500/40 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
+                                    <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent opacity-50"></div>
+                                    <div className="mb-8 relative inline-block">
+                                        <div className="absolute inset-0 animate-ping bg-amber-500/20 rounded-full"></div>
+                                        <div className="w-20 h-20 bg-gradient-to-tr from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.4)] relative z-10 border-2 border-amber-200/50 text-white">
+                                            <Icons.Achievement />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-1 mb-8">
+                                        <h3 className="text-2xl font-black text-white font-serif-tc tracking-[0.25em] drop-shadow-lg">法語成就達成</h3>
+                                    </div>
+                                    <div className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-8 backdrop-blur-sm relative group">
+                                        <div className="mb-2"><span className="text-[10px] font-black text-amber-400 tracking-[0.3em] uppercase">第 {dailyOracle?.id} 則</span></div>
+                                        <p className="text-2xl text-white font-black font-serif-tc tracking-[0.15em] leading-tight">{dailyOracle?.title}</p>
+                                    </div>
+                                    <button onClick={closeUnlockAlert} className="w-full py-4 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 rounded-2xl font-black text-sm shadow-[0_10px_20px_rgba(245,158,11,0.3)] active:scale-95 transition-all shine-effect relative overflow-hidden">收下成就，繼續實踐</button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="w-full max-w-[280px] bg-white border border-blue-100 rounded-[32px] overflow-hidden shadow-[0_20px_40px_rgba(30,58,138,0.2)] animate-scale-in relative group" onClick={e => e.stopPropagation()}>
+                                <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-blue-50/80 via-white to-cyan-50/80 pointer-events-none"></div>
+                                <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-200/40 rounded-full blur-xl pointer-events-none transition-transform duration-1000 group-hover:scale-110"></div>
+                                <div className="absolute -left-6 -bottom-6 w-32 h-32 bg-cyan-200/40 rounded-full blur-xl pointer-events-none transition-transform duration-1000 group-hover:scale-110"></div>
+
+                                <div className="p-8 text-center relative z-10">
+                                    <div className="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center">
+                                        <div className="absolute inset-0 bg-blue-200/60 rounded-full animate-ping opacity-40"></div>
+                                        <img src="https://paymiou.github.io/paymiou/August/updated.png" alt="updated" className="w-12 h-12 object-contain relative z-10 drop-shadow-sm" />
+                                    </div>
+                                    <div className="space-y-1 mb-6">
+                                        <p className="text-[15px] font-black text-blue-900 uppercase tracking-[0.2em] drop-shadow-sm">積分上傳成功</p>
+                                    </div>
+                                    <div className="bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-blue-200/50 inline-block min-w-[140px] shadow-sm">
+                                        <p className="text-blue-700 text-4xl font-black italic tracking-tighter drop-shadow-sm">+{addedScore}</p>
+                                        <p className="text-[12px] text-slate-600 font-bold mt-1">累計行持積分 <span className="text-blue-800">{baseScore}</span></p>
+                                    </div>
+                                </div>
+                                <div className="h-1.5 w-full bg-blue-100/50 relative z-10">
+                                    <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 animate-timer-bar"></div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 
                 {/* ====== 操作說明 Modal ====== */}
                     {showInstructionModal && (
@@ -2971,60 +3022,9 @@
                         </div>
                     )}
 
-                    {/* ===== 解鎖成就與上傳成功彈窗 ===== */}
-                    {unlockAlert && (
-                        <div className="fixed inset-0 z-[150] flex items-center justify-center p-6 bg-slate-950/60 backdrop-blur-md cursor-pointer" onClick={closeUnlockAlert} >
-                            {unlockAlert === 'achievement' ? (
-                                <div className="w-full max-w-[300px] relative animate-scale-in" onClick={e => e.stopPropagation()}>
-                                    <div className="absolute inset-0 bg-amber-500/20 blur-[80px] rounded-full"></div>
-                                    <div className="relative bg-gradient-to-b from-slate-800 to-slate-950 border border-amber-500/40 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
-                                        <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent opacity-50"></div>
-                                        <div className="mb-8 relative inline-block">
-                                            <div className="absolute inset-0 animate-ping bg-amber-500/20 rounded-full"></div>
-                                            <div className="w-20 h-20 bg-gradient-to-tr from-amber-400 to-amber-600 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(245,158,11,0.4)] relative z-10 border-2 border-amber-200/50 text-white">
-                                                <Icons.Achievement />
-                                            </div>
-                                        </div>
-                                        <div className="space-y-1 mb-8">
-                                            <h3 className="text-2xl font-black text-white font-serif-tc tracking-[0.25em] drop-shadow-lg">法語成就達成</h3>
-                                        </div>
-                                        <div className="bg-white/5 border border-white/10 rounded-3xl p-6 mb-8 backdrop-blur-sm relative group">
-                                            <div className="mb-2"><span className="text-[10px] font-black text-amber-400 tracking-[0.3em] uppercase">第 {dailyOracle?.id} 則</span></div>
-                                            <p className="text-2xl text-white font-black font-serif-tc tracking-[0.15em] leading-tight">{dailyOracle?.title}</p>
-                                        </div>
-                                        <button onClick={closeUnlockAlert} className="w-full py-4 bg-gradient-to-r from-amber-400 to-amber-600 text-slate-900 rounded-2xl font-black text-sm shadow-[0_10px_20px_rgba(245,158,11,0.3)] active:scale-95 transition-all shine-effect relative overflow-hidden">收下成就，繼續實踐</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="w-full max-w-[280px] bg-white border border-blue-100 rounded-[32px] overflow-hidden shadow-[0_20px_40px_rgba(30,58,138,0.2)] animate-scale-in relative group" onClick={e => e.stopPropagation()}>
-                                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-blue-50/80 via-white to-cyan-50/80 pointer-events-none"></div>
-                                    <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-200/40 rounded-full blur-xl pointer-events-none transition-transform duration-1000 group-hover:scale-110"></div>
-                                    <div className="absolute -left-6 -bottom-6 w-32 h-32 bg-cyan-200/40 rounded-full blur-xl pointer-events-none transition-transform duration-1000 group-hover:scale-110"></div>
-
-                                    <div className="p-8 text-center relative z-10">
-                                        <div className="w-16 h-16 mx-auto mb-4 relative flex items-center justify-center">
-                                            <div className="absolute inset-0 bg-blue-200/60 rounded-full animate-ping opacity-40"></div>
-                                            <img src="https://paymiou.github.io/paymiou/August/updated.png" alt="updated" className="w-12 h-12 object-contain relative z-10 drop-shadow-sm" />
-                                        </div>
-                                        <div className="space-y-1 mb-6">
-                                            <p className="text-[15px] font-black text-blue-900 uppercase tracking-[0.2em] drop-shadow-sm">積分上傳成功</p>
-                                        </div>
-                                        <div className="bg-white/60 backdrop-blur-md rounded-2xl p-4 border border-blue-200/50 inline-block min-w-[140px] shadow-sm">
-                                            <p className="text-blue-700 text-4xl font-black italic tracking-tighter drop-shadow-sm">+{addedScore}</p>
-                                            <p className="text-[12px] text-slate-600 font-bold mt-1">累計行持積分 <span className="text-blue-800">{baseScore}</span></p>
-                                        </div>
-                                    </div>
-                                    <div className="h-1.5 w-full bg-blue-100/50 relative z-10">
-                                        <div className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 animate-timer-bar"></div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     {/* 🌟稱號提升連鎖彈窗 UI */}
                     {showRankUpAlert && (
-                        <div className="fixed inset-0 z-[160] flex items-center justify-center p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in">
+                        <div className="fixed inset-0 z-[160] flex items-start justify-center p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in overflow-y-auto">
                             <div className="w-full max-w-[300px] relative animate-scale-in">
                                 <div className="absolute inset-0 bg-amber-400/20 blur-[80px] rounded-full"></div>
                                 <div className="relative bg-white border border-amber-200 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
