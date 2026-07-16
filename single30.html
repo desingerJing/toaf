@@ -2477,7 +2477,7 @@
 
                 {/* ===== 每日法語卡牌彈窗 ===== */}
                 {showOracleModal && dailyOracle && (
-                    <div className="fixed inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-start justify-center px-5 py-[10px] overflow-y-auto pointer-events-auto">
+                    <div className="fixed pt-16 inset-0 z-[160] bg-slate-900/60 backdrop-blur-md flex items-start justify-center px-5 py-[10px] overflow-y-auto pointer-events-auto">
                             {/* 內層加入 min-h-full 的彈性容器，確保滑動手勢自然，並加上 my-auto 的防守 */}
                             <div className="w-full max-w-[340px] bg-white rounded-[32px] px-5 pt-5 pb-6 shadow-[0_25px_70px_rgba(30,58,138,0.3)] border border-blue-100 animate-scale-in relative overflow-hidden my-0">
                             <div className="absolute top-0 left-0 w-full h-1/3 bg-gradient-to-b from-blue-50/80 to-transparent pointer-events-none"></div>
@@ -2549,7 +2549,7 @@
                 {unlockAlert && (
                     <div className="fixed inset-0 z-[150] flex items-start justify-center p-6 bg-slate-950/60 backdrop-blur-md overflow-y-auto cursor-pointer" onClick={closeUnlockAlert} >
                         {unlockAlert === 'achievement' ? (
-                            <div className="w-full max-w-[300px] relative animate-scale-in pt-20" onClick={e => e.stopPropagation()}>
+                            <div className="w-full max-w-[300px] relative animate-scale-in pt-10" onClick={e => e.stopPropagation()}>
                                 <div className="absolute inset-0 bg-amber-500/20 blur-[80px] rounded-full"></div>
                                 <div className="relative bg-gradient-to-b from-slate-800 to-slate-950 border border-amber-500/40 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-transparent via-amber-400/40 to-transparent opacity-50"></div>
@@ -2838,7 +2838,7 @@
                     {/* ====== Alerts & Modals ====== */}
                     {showLeaveAlert && (
                         <div className="fixed inset-0 z-[130] bg-black/70 flex items-center justify-center p-6 backdrop-blur-md">
-                            <div className="bg-white rounded-[32px] p-8 text-center w-full max-w-xs shadow-2xl animate-fade-in border border-slate-100">
+                            <div className="bg-white pt-16 rounded-[32px] p-8 text-center w-full max-w-xs shadow-2xl animate-fade-in border border-slate-100">
                                 <div className="text-4xl mb-4">⚠️</div>
                                 <h3 className="text-lg font-black mb-2 text-slate-800">同步上傳「未完成」</h3>
                                 <p className="text-xs text-slate-500 leading-relaxed font-medium mb-6">請返回上傳，完成後再切換頁面<br /></p>
@@ -2938,7 +2938,7 @@
                     {/* ====== 稱號等級表 Modal ====== */}
                     {showRankModal && (
                         <div className="fixed inset-0 z-[200] bg-slate-900/60 backdrop-blur-md flex items-center justify-center px-6 animate-fade-in" onClick={() => setShowRankModal(false)}>
-                            <div className="bg-white w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl animate-scale-in relative border border-blue-100 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+                            <div className="bg-white pt-16 w-full max-w-[320px] rounded-[32px] p-6 shadow-2xl animate-scale-in relative border border-blue-100 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
                                 <button onClick={() => setShowRankModal(false)} className="absolute top-4 right-4 w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-bold hover:bg-slate-200 transition-colors z-10">&times;</button>
                                 <div className="text-center mb-4 shrink-0">
                                     <h3 className="text-[17px] font-black text-blue-900 font-serif-tc tracking-widest flex items-center justify-center gap-2">
@@ -3032,7 +3032,7 @@
                     {/* 🌟稱號提升連鎖彈窗 UI */}
                     {showRankUpAlert && (
                         <div className="fixed inset-0 z-[160] flex items-start justify-center p-6 bg-slate-950/70 backdrop-blur-md animate-fade-in overflow-y-auto">
-                            <div className="w-full max-w-[300px] relative animate-scale-in pt-20">
+                            <div className="w-full max-w-[300px] relative animate-scale-in pt-10">
                                 <div className="absolute inset-0 bg-amber-400/20 blur-[80px] rounded-full"></div>
                                 <div className="relative bg-white border border-amber-200 rounded-[40px] p-8 text-center shadow-2xl overflow-hidden">
                                     <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-300 via-yellow-400 to-amber-300"></div>
@@ -3657,7 +3657,14 @@
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-3 gap-2 mb-6">
+                                <div class="go-to-result mb-4">
+                                    <div class="w-full bg-gradient-to-r from-blue-800 to-blue-950 text-white px-6 py-2 rounded-full font-black text-sm shadow-lg shadow-blue-500/30 active:scale-95 transition-all relative overflow-hidden group">
+                                        <div class="absolute inset-0 bg-white/10 skew-x-[45deg] -translate-x-full animate-[shine_2.5s_infinite]"></div>
+                                        <a href="https://sites.google.com/view/toafnoplastic/yujingTest01/yujingTest02"><span class="relative z-10 text-white font-black text-[11px] sm:text-sm tracking-widest flex items-center justify-center gap-1.5 drop-shadow-sm">🏆 前往成果頁 🏆</span></a>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-2 mb-4">
                                     <div className="bg-white border border-indigo-100 rounded-[14px] py-3 px-1 text-center shadow-[0_4px_12px_-4px_rgba(49,46,129,0.15)] relative overflow-hidden group">
                                         <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-b from-indigo-50/80 via-white to-blue-50/80 pointer-events-none"></div>
                                         <div className="relative z-10">
@@ -3692,7 +3699,7 @@
                                     </div>
                                 </div>
 
-                                <div className="mb-6 relative">
+                                <div className="mb-4 relative">
                                     <input
                                         type="text"
                                         value={searchQuery}
