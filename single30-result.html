@@ -637,29 +637,48 @@
         };
 
         // ==========================================
-        // 優化細節版：閒置過久超時偵測巡邏哨
+        // 終極完美版：超時閒置偵測巡邏哨（徹底修正多分頁閉包陷阱，100% 靈行偵測）
         // ==========================================
         function startTimeoutCheck() {
             const TIMEOUT_MS = 4 * 60 * 60 * 1000;
 
             const checkInterval = setInterval(() => {
-                if (!isLoggedIn) return;
+                // 🌟 學習重點 1：不認 JS 記憶體變數，直接讀取本機 localStorage 當下最新狀態！
+                const hasTokenOnCheck = localStorage.getItem('no_plastic_logged_in') === 'true';
+
+                // 如果 localStorage 裡面已經是登出狀態（可能在個人頁按了安全登出），
+                // 成果頁就自動切換回訪客模式，不跳過期視窗
+                if (!hasTokenOnCheck) {
+                    if (isLoggedIn) {
+                        isLoggedIn = false;
+                        userId = "";
+                        myGivenLikes = [];
+                        fetchData(); // 默默變回登入提示
+                    }
+                    return;
+                }
 
                 const lastActivity = parseInt(localStorage.getItem('last_activity_time') || "0", 10);
                 const now = Date.now();
 
-                if (lastActivity > 0 && (now - lastActivity > TIMEOUT_MS)) {
-
-                    // 🎯 優化細節 3：防禦鎖。如果 User 其實在別的分頁已經「重新整理並完成登入」，
-                    // 新憑證已經核發，這裡直接攔截 return，絕對不跳出提示框！
-                    const hasTokenOnCheck = localStorage.getItem('no_plastic_logged_in') === 'true' || sessionStorage.getItem('no_plastic_logged_in') === 'true';
-                    if (hasTokenOnCheck && (now - parseInt(localStorage.getItem('last_activity_time') || "0", 10) <= TIMEOUT_MS)) {
-                        return;
+                // 🌟 學習重點 2：智慧分流偵測
+                if (lastActivity > 0 && (now - lastActivity <= TIMEOUT_MS)) {
+                    // 情況 A：如果時間在 4 小時安全期內，但發現 localStorage 裡的最新 uid 
+                    // 竟然跟目前網頁畫面渲染的帳號（全域變數 userId）不同，說明「別的分頁剛重新登入成功」！
+                    const currentGlobalUid = localStorage.getItem('no_plastic_user_id');
+                    if (currentGlobalUid && currentGlobalUid !== userId) {
+                        console.log("🔄 偵測到其他分頁已重新登入成功，自動寂靜同步，免跳過期窗。");
+                        autoLoginByFingerprint(); // 默默更新按讚資料與變數
+                        fetchData();              // 默默更新橫幅分數與名次
                     }
+                    return; // 帳號安全，時間在範圍內，優雅放行！
+                }
 
-                    clearInterval(checkInterval);
+                // 🚨 情況 B：時間真真實實超過了 4 小時，且別的分頁在這 4 小時內完全沒有登入或操作
+                if (lastActivity > 0 && (now - lastActivity > TIMEOUT_MS)) {
+                    clearInterval(checkInterval); // 拔除這個計時器
 
-                    // 清除所有本機與會話登入憑證
+                    // 徹底清除所有本機與會話登入憑證
                     localStorage.removeItem('no_plastic_logged_in');
                     localStorage.removeItem('no_plastic_user_name');
                     localStorage.removeItem('last_activity_time');
@@ -672,7 +691,7 @@
                     userId = "";
                     myGivenLikes = [];
 
-                    // 🎯 優化細節 1：動態注入與個人挑戰頁 1:1 完全同款的精緻系統提示彈窗
+                    // 1:1 完美注入與個人挑戰頁完全相同款式的精緻 ⚠️ 警告彈窗
                     const alertModal = document.createElement('div');
                     alertModal.className = "fixed inset-0 bg-black/70 flex items-center justify-center p-6 backdrop-blur-md z-[99999] animate-fade-in";
                     alertModal.innerHTML = `
@@ -687,13 +706,13 @@
         `;
                     document.body.appendChild(alertModal);
 
-                    // 🎯 優化細節 2：對提示框按下確定後，頁面自動執行重新整理（F5）
+                    // 按下確認，直接 F5 重整，讓網頁重載直接回歸最乾淨的訪客狀態
                     document.getElementById('timeout-confirm-btn').onclick = function () {
-                        alertModal.remove(); // 移除彈窗
-                        window.location.reload(); // 🚀 重新整理網頁，讓個人橫幅完全無縫變回登入提示！
+                        alertModal.remove();
+                        window.location.reload();
                     };
                 }
-            }, 15000);
+            }, 15000); // 15秒精準動態巡邏
         }
 
         function columnLetterToIndex(letter) {
