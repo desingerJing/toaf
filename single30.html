@@ -155,12 +155,38 @@
         .ui.selection.dropdown .menu {
             border-radius: 0 0 0.75rem 0.75rem !important;
         }
+
+        body.is-mobile-chrome {
+            padding-top: 40px !important;
+        }
+
+        /* body.is-mobile-chrome #tour-score-panel ~ .sticky {
+            top: 56px !important;
+        } */
     </style>
 </head>
 
 <body class="bg-slate-100 min-h-screen overflow-x-hidden">
     <div id="root" class="relative"></div>
 
+    <script>
+        // 檢查是否為行動裝置且使用 Chrome
+        function detectMobileChrome() {
+            const ua = navigator.userAgent;
+
+            // 檢查是否包含 Mobile 且包含 Chrome，同時排除被其他瀏覽器 (如 Edge, Opera) 偽造的情況
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua);
+            const isChrome = /Chrome|CriOS/i.test(ua) && !/Edg|OPR|SamsungBrowser/i.test(ua);
+
+            if (isMobile && isChrome) {
+                // 如果符合條件，給 <body> 標籤加上一個特殊的 class 名稱
+                document.body.classList.add('is-mobile-chrome');
+            }
+        }
+
+        // 頁面載入時執行
+        document.addEventListener('DOMContentLoaded', detectMobileChrome);
+    </script>
     <script type="text/babel">
         (function () {
             const urlParams = new URLSearchParams(window.location.search);
@@ -239,7 +265,7 @@
             }
         ];
 
-        const callJsonpApi = (action, params, onSuccess, onError) => {
+        const callJsonpApi = (action, params, onSuccess, onError, retryCount = 0) => {
             const callbackName = `jsonp_${action}_${Date.now()}_${Math.floor(Math.random() * 10000)}`;
             let url = `${API_URL}?action=${action}&callback=${callbackName}&t=${Date.now()}`;
 
@@ -250,11 +276,19 @@
             });
 
             let isTimeout = false;
+            // 🌟 超時時間由 15 秒延長至 25 秒，給 GAS 高峰期充分回應時間
             const timeoutId = setTimeout(() => {
                 isTimeout = true;
                 delete window[callbackName];
-                if (onError) onError(new Error("伺服器無回應 (15秒逾時)，請檢查網路或稍後再試。"));
-            }, 15000);
+
+                // 🌟 自動重試機制：失敗時自動重試最多 2 次
+                if (retryCount < 2) {
+                    console.warn(`[JSONP 超時] ${action} 嘗試第 ${retryCount + 1} 次自動重試...`);
+                    callJsonpApi(action, params, onSuccess, onError, retryCount + 1);
+                } else {
+                    if (onError) onError(new Error("伺服器繁忙中 (連線超時)，請檢查網路或稍後再試。"));
+                }
+            }, 25000);
 
             window[callbackName] = (data) => {
                 if (isTimeout) return;
@@ -269,10 +303,17 @@
                 if (isTimeout) return;
                 clearTimeout(timeoutId);
                 delete window[callbackName];
-                if (onError) onError(new Error("網路連線遭拒！可能原因：\n1. 您的 GAS 後端程式碼有漏掉括號的語法錯誤\n2. 部署權限未設為「所有人」\n3. 剛更新但忘了發布「新版本」"));
+                if (retryCount < 2) {
+                    console.warn(`[JSONP 網路連線中斷] ${action} 嘗試第 ${retryCount + 1} 次自動重試...`);
+                    callJsonpApi(action, params, onSuccess, onError, retryCount + 1);
+                } else if (onError) {
+                    onError(new Error("網路連線遭拒！可能原因：\n1. 您的 GAS 後端程式碼有語法錯誤\n2. 部署權限未設為「所有人」\n3. 剛更新但忘了發布「新版本」"));
+                }
             };
             document.body.appendChild(script);
-            script.onload = () => document.body.removeChild(script);
+            script.onload = () => {
+                if (document.body.contains(script)) document.body.removeChild(script);
+            };
         };
 
         const parseScoreStr = (val) => {
@@ -726,6 +767,16 @@
             { id: 30, title: "勇猛截斷習氣", content: "從這個角度，就涉及「習氣」的問題——我們會有一個用塑料袋的習氣。那麼在面對這個習氣的時候，就是「不要手軟，立刻截斷」就可以了。", mission: "拿出修行人的大勇猛心，今日不購買也不使用任何塑膠用品。" }
         ];
 
+        const ALL_ORACLE_MISSIONS = ORACLES.map(o => o.mission);
+
+        const cleanExtraTasks = (tasksArr) => {
+            if (!tasksArr) return DEFAULT_TASKS;
+            return tasksArr.filter(t => {
+                const rawText = t.replace(' (加1分)', '').trim();
+                return !ALL_ORACLE_MISSIONS.includes(rawText) && !ALL_ORACLE_MISSIONS.includes(t);
+            });
+        };
+
         const RANK_LIST = [
             { min: 0, max: 49, stage: "【初心覺醒】", title: "Lv. 1-1 淨塑原點" },
             { min: 50, max: 99, stage: "【初心覺醒】", title: "Lv. 1-2 塑縛覺醒者" },
@@ -748,7 +799,7 @@
         };
 
         const WEEKLY_CONFIG = [
-            { id: 'w1', title: '第一週實踐章', weekName: '第一週', dateDisplay: '2026/8/07 - 8/09', openTime: new Date('2026-08-07T00:00:00').getTime(), closeTime: new Date('2026-08-09T23:59:59').getTime() },
+            { id: 'w1', title: '第一週實踐章', weekName: '第一週', dateDisplay: '2026/8/07 - 8/10', openTime: new Date('2026-08-07T00:00:00').getTime(), closeTime: new Date('2026-08-10T23:59:59').getTime() },
             { id: 'w2', title: '第二週實踐章', weekName: '第二週', dateDisplay: '2026/8/14 - 8/16', openTime: new Date('2026-08-14T00:00:00').getTime(), closeTime: new Date('2026-08-16T23:59:59').getTime() },
             { id: 'w3', title: '第三週實踐章', weekName: '第三週', dateDisplay: '2026/8/21 - 8/23', openTime: new Date('2026-08-21T00:00:00').getTime(), closeTime: new Date('2026-08-23T23:59:59').getTime() },
             { id: 'w4', title: '第四週實踐章', weekName: '第四週', dateDisplay: '2026/8/28 - 8/30', openTime: new Date('2026-08-28T00:00:00').getTime(), closeTime: new Date('2026-08-30T23:59:59').getTime() }
@@ -804,6 +855,7 @@
             const [isLoggedIn, setIsLoggedIn] = useState(() => localStorage.getItem('no_plastic_logged_in') === 'true' || sessionStorage.getItem('no_plastic_logged_in') === 'true');
             const [userName, setUserName] = useState(() => localStorage.getItem('no_plastic_user_name') || sessionStorage.getItem('no_plastic_user_name') || '');
             const [currentDay, setCurrentDay] = useState(1);
+            const isLikingRef = useRef(false);
 
             const [visibleCount, setVisibleCount] = useState(10); // 預設只顯示 10 筆
 
@@ -870,15 +922,12 @@
             const syncCustomPocketToCloud = (nextExtraTasks, nextCompletedTasks) => {
                 if (!isLoggedIn || !userId) return;
 
-                // 過濾：只抓出「屬於自訂(不在內建名單)」且「使用者今天還沒打勾完成」的口袋名單
-                const uncompletedCustoms = nextExtraTasks.filter(t =>
-                    !DEFAULT_TASKS.includes(t) && !nextCompletedTasks.includes(t)
-                );
-
-                // 把這群待辦名單用逗號串起來，即時送到後端 savePocket API
-                callJsonpApi('savePocket', { uid: userId, pocketStr: uncompletedCustoms.join(',') },
-                    (res) => { console.log("FM 欄位暫存同步成功:", res.message); },
-                    (err) => { console.error("FM 欄位同步失敗:", err); }
+                // 抓出所有「屬於自訂(不在內建 4 大預設名單中)」的自訂口袋名單
+                const allCustomItems = cleanExtraTasks(nextExtraTasks).filter(t => !DEFAULT_TASKS.includes(t));
+                // 把完整的自訂待辦名單用逗號串起來，即時送到後端 savePocket API 存入 FL 欄
+                callJsonpApi('savePocket', { uid: userId, pocketStr: allCustomItems.join(',') },
+                    (res) => { console.log("FL 欄位自訂口袋名單同步成功:", res.message); },
+                    (err) => { console.error("FL 欄位同步失敗:", err); }
                 );
             };
 
@@ -1361,8 +1410,10 @@
 
             // 關鍵：新手自動觸發機制（分數為0且今天沒抽卡）
             useEffect(() => {
-                if (isLoggedIn && baseScore === 0 && dailyOracle === null) {
+                // 必須確定：1.已登入 2.雲端個人資料已完全載入完畢 3.分數確實為0 4.今天沒抽卡
+                if (isLoggedIn && loadedUserId === userId && baseScore === 0 && dailyOracle === null) {
                     const hasSeenTour = localStorage.getItem('has_seen_tour_2026') === 'true';
+                    // 只有當 LocalStorage 確定完全沒有看過紀錄時才自動跳出
                     if (!hasSeenTour) {
                         setTimeout(() => {
                             setActiveTab('daily');
@@ -1370,7 +1421,7 @@
                         }, 800);
                     }
                 }
-            }, [isLoggedIn, baseScore, dailyOracle]);
+            }, [isLoggedIn, loadedUserId, userId, baseScore, dailyOracle]);
 
             // ==========================================
             // 調整安全登出函數（新增 silent 參數支援背景清除）
@@ -1428,11 +1479,11 @@
             useEffect(() => {
                 const lastActivity = parseInt(localStorage.getItem('last_activity_time') || sessionStorage.getItem('last_activity_time') || "0", 10);
                 const now = Date.now();
-                const oneHour = 4 * 60 * 60 * 1000;
+                const oneHour = 12 * 60 * 60 * 1000;
 
-                // A. 【超時安全機制】閒置 4 小時強制踢除
+                // A. 【超時安全機制】閒置 12 小時強制踢除
                 if (isLoggedIn && lastActivity > 0 && (now - lastActivity > oneHour)) {
-                    forceLogout("由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。");
+                    forceLogout("由於您超過 12 小時未操作網頁，為了安全，系統已自動為您登出。");
                     return;
                 }
 
@@ -1477,12 +1528,13 @@
                                     setDailyOracle(null);
                                 }
 
-                                // 3. 還原 FM 口袋暫存與已完成項目
+                                // 3. 還原 FM/FL 口袋暫存與已完成項目
                                 let targetCompletedTasks = [];
                                 let currentExtra = [...DEFAULT_TASKS];
 
+                                // 🌟 核心修正：自動連線時，優先把 FL 欄的口袋名單帶入當日畫面
                                 if (data.customPocket && data.customPocket !== "") {
-                                    const pocketItems = String(data.customPocket).split(',').filter(Boolean);
+                                    const pocketItems = String(data.customPocket).split(',').map(s => s.trim()).filter(Boolean);
                                     pocketItems.forEach(pItem => {
                                         if (!currentExtra.includes(pItem)) currentExtra.push(pItem);
                                     });
@@ -1504,9 +1556,23 @@
                                     setSyncedTasks([]);
                                 }
 
-                                setExtraTasks(currentExtra);
+                                // 🌟 寫入 React 狀態：讓當日渲染列表立即包含 FL 欄的自訂項目！
+                                setExtraTasks(cleanExtraTasks(currentExtra));
                                 setBaseScore(Number(data.totalScore) || 0);
                                 setReceivedLikesScore(Number(data.receivedLikesScore) || 0);
+
+                                /* 🌟 修正1：自動登入時解析該 UID 的所有成就清單 */
+                                const cloudUnlockedIds = [
+                                    ...parseIdsStr(data.unlockedIds),
+                                    ...parseIdsStr(data.unlockedOracles),
+                                    ...parseIdsStr(data.achievementsList),
+                                    ...parseIdsStr(data.unlockedItems),
+                                    ...parseIdsStr(data.unlocked)
+                                ];
+                                if (cloudUnlockedIds.length > 0) {
+                                    const uniqueUnlocked = [...new Set(cloudUnlockedIds)].map(id => ({ id }));
+                                    setUnlockedItems(uniqueUnlocked);
+                                }
 
                                 if (data.reports) {
                                     setWeeklyReports(prev => ({ ...prev, ...data.reports }));
@@ -1519,7 +1585,7 @@
                                     receivedLikesScore: Number(data.receivedLikesScore) || 0,
                                     completedTasks: targetCompletedTasks,
                                     syncedTasks: targetCompletedTasks,
-                                    unlockedItems: data.reports ? [] : [],
+                                    unlockedItems: cloudUnlockedIds.length > 0 ? [...new Set(cloudUnlockedIds)].map(id => ({ id })) : [],
                                     weeklyReports: data.reports || weeklyReports,
                                     extraTasks: currentExtra,
                                     myGivenLikes: data.myGivenLikes ? String(data.myGivenLikes).split(',').filter(Boolean) : [],
@@ -1530,8 +1596,6 @@
                                 };
                                 localStorage.setItem(`data_${data.uid}`, JSON.stringify(dataToSaveImmediate));
 
-                                // 長效記住憑證安全續期
-                                setSandboxCookie('no_plastic_logged_in', 'true', 30);
                                 localStorage.setItem('last_activity_time', String(Date.now()));
 
                                 setIsLoggedIn(true); // 🌟 指紋識別成功，直接進入系統！
@@ -1549,13 +1613,13 @@
             }, [isLoggedIn]);
 
             // ==========================================
-            // 優化：超時閒置安全機制與活動時間更新（精準設定為 4 小時強迫登出）
+            // 優化：超時閒置安全機制與活動時間更新（精準設定為 12 小時強迫登出）
             // ==========================================
             useEffect(() => {
                 if (!isLoggedIn) return;
 
-                // 🎯 核心調整：統一宣告 4 小時的毫秒數常數 (4 * 60 * 60 * 1000 = 14400000 毫秒)
-                const TIMEOUT_MS = 4 * 60 * 60 * 1000;
+                // 🎯 核心調整：統一宣告 12 小時的毫秒數常數 (12 * 60 * 60 * 1000 = 14400000 毫秒)
+                const TIMEOUT_MS = 12 * 60 * 60 * 1000;
 
                 const updateActivity = () => {
                     localStorage.setItem('last_activity_time', String(Date.now()));
@@ -1599,7 +1663,7 @@
 
                         setCustomAlert({
                             title: "系統通知",
-                            message: "由於您超過 4 小時未操作網頁，為了安全，系統已自動為您登出。",
+                            message: "由於您超過 12 小時未操作網頁，為了安全，系統已自動為您登出。",
                             onConfirm: () => {
                                 setIsLoggedIn(false);
                                 setDailyOracle(null);
@@ -1656,7 +1720,7 @@
                         setLastSavedScore(d.score || 0);
                         setUnlockedItems(d.unlockedItems || []);
                         setWeeklyReports(d.weeklyReports || weeklyReports);
-                        setMyGivenLikes(d.myGivenLikes || []);
+                        setMyGivenLikes(Array.isArray(d.myGivenLikes) ? d.myGivenLikes : (typeof d.myGivenLikes === 'string' ? d.myGivenLikes.split(',').filter(Boolean) : []));
                         setDrawnOracleIds(d.drawnOracleIds || []);
 
                         // 核心安全檢查：如果本機快取日跟今天一樣，大膽啟用快取
@@ -1665,14 +1729,14 @@
                             setCompletedTasks(d.completedTasks || []);
                             setSyncedTasks(d.syncedTasks || []);
                             if (d.currentDay) setCurrentDay(Number(d.currentDay));
-                            setExtraTasks(d.extraTasks || DEFAULT_TASKS);
+                            setExtraTasks(cleanExtraTasks(d.extraTasks || DEFAULT_TASKS));
                             if (d.seenOracleDate === todayKey) setSeenOracleDate(todayKey);
                         } else {
                             // 如果本機快取過期了 (換日了)，主動重置
                             setDailyOracle(null);
                             setCompletedTasks([]);
                             setSyncedTasks([]);
-                            setExtraTasks(DEFAULT_TASKS);
+                            setExtraTasks(cleanExtraTasks(d.extraTasks && d.extraTasks.length > 0 ? d.extraTasks : DEFAULT_TASKS));
                         }
                     } catch (e) {
                         console.error('LocalStorage parse error:', e);
@@ -1901,11 +1965,32 @@
 
             const handleLikeClick = (targetPlayerId, weekId, e) => {
                 e.stopPropagation();
+
+                // 1. 檢查是否在冷卻中
+                if (isLikingRef.current) {
+                    showToast('點讚太快囉，請稍等一下下！', 'pending');
+                    return;
+                }
+
                 if (targetPlayerId === userId) return;
                 const likeKey = `${targetPlayerId}_${weekId}`;
-                if (myGivenLikes.includes(likeKey)) return;
 
-                setMyGivenLikes(prev => [...prev, likeKey]);
+                // 🌟 修正 1：強制轉為陣列進行嚴格比對，防堵字串誤判 (11 包含 1 的問題)
+                const safeLikes = Array.isArray(myGivenLikes) ? myGivenLikes : (typeof myGivenLikes === 'string' ? myGivenLikes.split(',') : []);
+                if (safeLikes.includes(likeKey)) return;
+
+                // 2. 上鎖！
+                isLikingRef.current = true;
+
+                setTimeout(() => {
+                    isLikingRef.current = false;
+                }, 800);
+
+                // 3. 樂觀更新：畫面立刻亮起粉紅愛心
+                setMyGivenLikes(prev => {
+                    const arr = Array.isArray(prev) ? prev : (typeof prev === 'string' ? prev.split(',') : []);
+                    return [...arr, likeKey];
+                });
                 setRealPlayers(prev => prev.map(p => {
                     if (p.id === targetPlayerId && p.reports && p.reports[weekId]) {
                         return { ...p, reports: { ...p.reports, [weekId]: { ...p.reports[weekId], likes: (p.reports[weekId].likes || 0) + 1 } } };
@@ -1913,11 +1998,16 @@
                     return p;
                 }));
 
+                // 4. 背景發送給伺服器
                 callJsonpApi('likeReport', { targetUid: targetPlayerId, weekId, likerUid: userId },
                     (res) => {
                         if (res.result !== 'success') {
                             setCustomAlert({ title: '按讚未紀錄', message: res.message || '無法連線至伺服器' });
-                            setMyGivenLikes(prev => prev.filter(k => k !== likeKey));
+                            // --- 失敗還原機制 ---
+                            setMyGivenLikes(prev => {
+                                const arr = Array.isArray(prev) ? prev : (typeof prev === 'string' ? prev.split(',') : []);
+                                return arr.filter(k => k !== likeKey);
+                            });
                             setRealPlayers(prev => prev.map(p => {
                                 if (p.id === targetPlayerId && p.reports && p.reports[weekId]) {
                                     return { ...p, reports: { ...p.reports, [weekId]: { ...p.reports[weekId], likes: Math.max(0, (p.reports[weekId].likes || 0) - 1) } } };
@@ -1928,7 +2018,11 @@
                     },
                     (err) => {
                         setCustomAlert({ title: '網路異常', message: '無法連接到雲端，按讚紀錄未能保存。' });
-                        setMyGivenLikes(prev => prev.filter(k => k !== likeKey));
+                        // --- 失敗還原機制 ---
+                        setMyGivenLikes(prev => {
+                            const arr = Array.isArray(prev) ? prev : (typeof prev === 'string' ? prev.split(',') : []);
+                            return arr.filter(k => k !== likeKey);
+                        });
                         setRealPlayers(prev => prev.map(p => {
                             if (p.id === targetPlayerId && p.reports && p.reports[weekId]) {
                                 return { ...p, reports: { ...p.reports, [weekId]: { ...p.reports[weekId], likes: Math.max(0, (p.reports[weekId].likes || 0) - 1) } } };
@@ -1997,6 +2091,13 @@
             const toggleTask = (task) => {
                 if (syncedTasks.includes(task)) return;
                 const isClosing = completedTasks.includes(task);
+
+                // 🌟 修正：加入每日最高 40 分防護網！
+                if (!isClosing && completedTasks.length >= 40) {
+                    setCustomAlert({ title: "已達今日上限", message: "太厲害了！但每日行持積分最高上限為 40 分，剩餘的淨塑善行請留待明日繼續實踐喔！" });
+                    return;
+                }
+
                 setCompletedTasks(prev => isClosing ? prev.filter(t => t !== task) : [...prev, task]);
                 setBaseScore(s => isClosing ? s - 1 : s + 1);
             };
@@ -2012,8 +2113,8 @@
                     setCustomAlert({ title: "字數限制", message: "淨塑行動需介於 3～20 個字之間。" });
                     return;
                 }
-                if (extraTasks.length >= 30) {
-                    setCustomAlert({ title: "任務已達上限", message: "自訂項目清單最多僅能存儲 30 則內容，請先完成現有目標。" });
+                if (extraTasks.length >= 40) {
+                    setCustomAlert({ title: "任務已達上限", message: "自訂項目清單最多僅能存儲 40 則內容，請先完成現有目標。" });
                     return;
                 }
                 if (/^\d+$/.test(trimmed)) {
@@ -2075,6 +2176,7 @@
 
             const handleSync = () => {
                 setSyncing(true);
+                // 計算本次新增的差額
                 const diff = baseScore - lastSavedScore;
                 setAddedScore(diff);
 
@@ -2097,6 +2199,8 @@
                 const oracleStr = dailyOracle ? `第${dailyOracle.id}則-${dailyOracle.title}` : "未抽取";
                 const tasksListStr = completedTasks.length > 0 ? completedTasks.join("、") : "未完成 any 項目";
                 const dailyScore = completedTasks.length;
+
+                // 🌟 將上傳前的預預估分數記下來
                 const totalScoreToSend = baseScore;
                 const unlockedIdsStr = finalUnlocked.map(item => item.id).join(',');
 
@@ -2112,8 +2216,9 @@
                     achievements: finalUnlocked.length
                 },
                     (res) => {
-                        const cloudScore = Math.max(parseScoreStr(res.totalScore), parseScoreStr(res.baseScore));
-                        const finalScore = Math.max(totalScoreToSend, cloudScore);
+                        // 🌟【核心修正 1】精準拿伺服器計算好的真實分數，完全不疊加本地舊變數
+                        const cloudScore = parseScoreStr(res.totalScore);
+                        const finalScore = cloudScore > 0 ? cloudScore : totalScoreToSend;
 
                         const finalOldRank = getRankInfo(lastSavedScore);
                         const finalNewRank = getRankInfo(finalScore);
@@ -2122,12 +2227,9 @@
                             rankUpInfo = finalNewRank;
                         }
 
-                        if (cloudScore > 0) {
-                            setBaseScore(prev => Math.max(prev, cloudScore));
-                            setLastSavedScore(prev => Math.max(prev, cloudScore));
-                        } else {
-                            setLastSavedScore(baseScore);
-                        }
+                        // 🌟【核心修正 2】精準歸位：把 currentScore 與 lastSavedScore 統一對齊為最終分數
+                        setBaseScore(finalScore);
+                        setLastSavedScore(finalScore);
 
                         const cloudIds = [
                             ...parseIdsStr(res.unlockedIds),
@@ -2141,12 +2243,12 @@
 
                         setUnlockedItems(mergedUnlocked);
                         setAllowLeave(false);
-                        setSyncedTasks(completedTasks);
+                        setSyncedTasks(completedTasks); // 標記目前項目已完全同步
                         setSyncing(false);
 
                         if (isNewAchievement) {
                             setUnlockAlert('achievement');
-                            setPendingRankUpData(rankUpInfo); // 暫存稱號
+                            setPendingRankUpData(rankUpInfo);
                         } else {
                             setUnlockAlert('normal');
                             setPendingRankUpData(rankUpInfo);
@@ -2154,14 +2256,15 @@
                             alertTimerRef.current = setTimeout(() => {
                                 setUnlockAlert(null);
                                 if (rankUpInfo) {
-                                    setShowRankUpAlert(rankUpInfo); // 3秒後自動關閉並跳出稱號提升
+                                    setShowRankUpAlert(rankUpInfo);
                                     setPendingRankUpData(null);
                                 }
                             }, 3000);
                         }
                     },
                     (err) => {
-                        setCustomAlert({ title: "網路連線異常", message: "無法連接到雲端試算表，已先為您儲存於本機記憶體中。" });
+                        // 🌟【核心修正 3】同步失敗時，不破壞 baseScore 的數值，只提提醒存於本機
+                        setCustomAlert({ title: "網路連線繁忙", message: "目前連線人數較多，資料已先為您安全存於本機中。請稍後再按一次「同步上傳」即可！" });
                         setSyncing(false);
                     });
             };
@@ -2373,8 +2476,9 @@
                                     let targetCompletedTasks = [];
                                     let currentExtra = [...DEFAULT_TASKS];
 
+                                    // 🌟 核心修正：優先載入 FL 欄位 (customPocket) 的長效自訂口袋名單
                                     if (userData.customPocket && userData.customPocket !== "") {
-                                        const pocketItems = String(userData.customPocket).split(',').filter(Boolean);
+                                        const pocketItems = String(userData.customPocket).split(',').map(s => s.trim()).filter(Boolean);
                                         pocketItems.forEach(pItem => {
                                             if (!currentExtra.includes(pItem)) {
                                                 currentExtra.push(pItem);
@@ -2382,12 +2486,14 @@
                                         });
                                     }
 
+                                    // 載入當天已勾選說明的項目
                                     if (userData.todayTasks && userData.todayTasks !== "無" && userData.todayTasks !== "" && userData.todayTasks !== "未完成 any 項目") {
                                         const tasksArr = String(userData.todayTasks).split("、").map(s => s.trim()).filter(x => x && x !== "未完成 any 項目");
                                         setCompletedTasks(tasksArr);
                                         setSyncedTasks(tasksArr);
                                         targetCompletedTasks = tasksArr;
 
+                                        // 保底：若當天勾選的項目不在名單內，也一併補入名單中
                                         tasksArr.forEach(task => {
                                             if (!DEFAULT_TASKS.includes(task) && !currentExtra.includes(task)) {
                                                 currentExtra.push(task);
@@ -2398,10 +2504,24 @@
                                         setSyncedTasks([]);
                                     }
 
-                                    setExtraTasks(currentExtra);
+                                    // 🌟 寫入 React 狀態：讓當日渲染列表立即包含 FL 欄的自訂項目！
+                                    setExtraTasks(cleanExtraTasks(currentExtra));
 
                                     setBaseScore(Number(userData.totalScore) || 0);
                                     setReceivedLikesScore(Number(userData.receivedLikesScore) || 0);
+
+                                    /* 🌟 修正3：手動登入成功時解析雲端歷史解鎖成就並填入 unlockedItems */
+                                    const cloudUnlockedIds = [
+                                        ...parseIdsStr(userData.unlockedIds),
+                                        ...parseIdsStr(userData.unlockedOracles),
+                                        ...parseIdsStr(userData.achievementsList),
+                                        ...parseIdsStr(userData.unlockedItems),
+                                        ...parseIdsStr(userData.unlocked)
+                                    ];
+                                    if (cloudUnlockedIds.length > 0) {
+                                        const uniqueUnlocked = [...new Set(cloudUnlockedIds)].map(id => ({ id }));
+                                        setUnlockedItems(uniqueUnlocked);
+                                    }
 
                                     let targetDrawnIds = [];
                                     if (userData.drawnOracleIds) {
@@ -2419,7 +2539,7 @@
                                         receivedLikesScore: Number(userData.receivedLikesScore) || 0,
                                         completedTasks: targetCompletedTasks,
                                         syncedTasks: targetCompletedTasks,
-                                        unlockedItems: userData.reports ? [] : [],
+                                        unlockedItems: cloudUnlockedIds.length > 0 ? [...new Set(cloudUnlockedIds)].map(id => ({ id })) : [],
                                         weeklyReports: userData.reports || weeklyReports,
                                         extraTasks: currentExtra,
                                         myGivenLikes: userData.myGivenLikes ? String(userData.myGivenLikes).split(',').filter(Boolean) : [],
@@ -2546,7 +2666,7 @@
 
                     {/* ===== 解鎖成就與上傳成功彈窗 ===== */}
                     {unlockAlert && (
-                        <div className="fixed inset-0 z-[150] flex items-start justify-center p-6 bg-slate-950/60 backdrop-blur-md overflow-y-auto cursor-pointer pt-10" onClick={closeUnlockAlert} >
+                        <div className="fixed inset-0 z-[150] flex items-start justify-center p-6 bg-slate-950/60 backdrop-blur-md overflow-y-auto cursor-pointer" onClick={closeUnlockAlert} >
                             {unlockAlert === 'achievement' ? (
                                 <div className="w-full max-w-[300px] relative animate-scale-in pt-10" onClick={e => e.stopPropagation()}>
                                     <div className="absolute inset-0 bg-amber-500/20 blur-[80px] rounded-full"></div>
@@ -3440,20 +3560,20 @@
                                                             <img src="https://paymiou.github.io/paymiou/August/plus.png" alt="add icon" className="w-3 h-3 object-contain flex-shrink-0" />
                                                             <span className="text-[12px] font-black text-[#173E98] uppercase tracking-widest">新增更多淨塑行動</span>
                                                         </button>
-                                                        {extraTasks.length >= 30 && <span className="text-[9px] font-black text-red-500 animate-pulse">已達上限</span>}
+                                                        {extraTasks.length >= 40 && <span className="text-[9px] font-black text-red-500 animate-pulse">已達上限</span>}
                                                     </div>
                                                     <div className="flex items-stretch gap-2 w-full">
                                                         <input
                                                             type="text"
                                                             value={customTaskInput}
                                                             onChange={(e) => setCustomTaskInput(e.target.value)}
-                                                            placeholder={currentDay > 30 ? "活動已結束" : extraTasks.length >= 30 ? "已達上限 30 則" : "同樣項目不可重複"}
-                                                            disabled={extraTasks.length >= 30 || currentDay > 30}
+                                                            placeholder={currentDay > 30 ? "活動已結束" : extraTasks.length >= 40 ? "已達上限 40 則" : "同樣項目不可重複"}
+                                                            disabled={extraTasks.length >= 40 || currentDay > 30}
                                                             className="flex-1 min-w-0 bg-white border border-slate-200 rounded-xl px-4 py-2.5 text-[16px] sm:text-[11px] font-bold focus:outline-none focus:border-blue-400 transition-colors shadow-sm disabled:bg-slate-100 disabled:placeholder-slate-400"
                                                         />
                                                         <button
                                                             onClick={() => addCustomTask()}
-                                                            disabled={extraTasks.length >= 30 || currentDay > 30}
+                                                            disabled={extraTasks.length >= 40 || currentDay > 30}
                                                             className="shrink-0 w-[54px] bg-[#173E98] disabled:bg-slate-300 text-white rounded-xl text-[11px] font-black active:scale-95 hover:bg-[#1e46b6] transition-all shadow-sm"
                                                         >
                                                             新增
@@ -3701,7 +3821,6 @@
                                     </div>
 
                                     <div className="mb-4 relative">
-                                        <from>
                                         <input
                                             type="text"
                                             value={searchQuery}
@@ -3724,7 +3843,6 @@
                                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                             </button>
                                         )}
-                                        </from>
                                     </div>
 
                                     <div className="space-y-2.5 min-h-[40vh]">
