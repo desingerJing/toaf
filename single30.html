@@ -160,9 +160,9 @@
             padding-top: 40px !important;
         }
 
-        /* body.is-mobile-chrome #tour-score-panel ~ .sticky {
-            top: 56px !important;
-        } */
+        body.is-mobile-chrome #tour-score-panel ~ .sticky {
+            top: env(safe-area-inset-top, 0px);
+        }
     </style>
 </head>
 
