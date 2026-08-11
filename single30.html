@@ -160,15 +160,15 @@
             padding-top: 40px !important;
         }
 
-        body.is-mobile-chrome #tour-score-panel ~ .sticky {
+        /* body.is-mobile-chrome #tour-score-panel ~ .sticky {
             top: env(safe-area-inset-top, 0px);
-        }
+        } */
     </style>
 </head>
 
 <body class="bg-slate-100 min-h-screen overflow-x-hidden">
     <div id="root" class="relative"></div>
-
+<!-- 
     <script>
         // 檢查是否為行動裝置且使用 Chrome
         function detectMobileChrome() {
@@ -186,7 +186,7 @@
 
         // 頁面載入時執行
         document.addEventListener('DOMContentLoaded', detectMobileChrome);
-    </script>
+    </script> -->
     <script type="text/babel">
         (function () {
             const urlParams = new URLSearchParams(window.location.search);
